@@ -53,8 +53,8 @@ func AnonymousLogger() *logrus.Entry {
 func Logger(ctx context.Context) *logrus.Entry {
 	entry := logrus.NewEntry(defaultLogger)
 	fields := logrus.Fields{}
-	for field := range fields {
-		if val := ctx.Value(KeyRequestID); val != nil {
+	for field := range loggerFields {
+		if val := ctx.Value(field); val != nil {
 			fields[field] = val
 		}
 	}
