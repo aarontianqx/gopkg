@@ -19,8 +19,10 @@ func Recover(ctx context.Context, err *error) {
 		*err = tmp
 	}
 	panicLoc := IdentifyPanicLoc()
-	Logger(ctx).WithError(tmp).Errorf("catch panic!!! panic location: %v \nstacktrace:\n%s",
-		panicLoc, debug.Stack())
+	LoggerCtx(ctx).Error("catch panic!!!",
+		"error", tmp,
+		"panic_location", panicLoc,
+		"stacktrace", string(debug.Stack()))
 }
 
 // Recovery common recovery function
@@ -31,8 +33,10 @@ func Recovery(ctx context.Context) {
 	}
 	err := fmt.Errorf("%v", e)
 	panicLoc := IdentifyPanicLoc()
-	Logger(ctx).WithError(err).Errorf("catch panic!!! panic location: %v \nstacktrace:\n%s",
-		panicLoc, debug.Stack())
+	LoggerCtx(ctx).Error("catch panic!!!",
+		"error", err,
+		"panic_location", panicLoc,
+		"stacktrace", string(debug.Stack()))
 }
 
 // IdentifyPanicLoc get panic location

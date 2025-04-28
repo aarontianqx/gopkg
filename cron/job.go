@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/aarontianqx/gopkg/common"
-	"github.com/aarontianqx/gopkg/lang/rand"
+	"github.com/aarontianqx/gopkg/random"
 	"github.com/robfig/cron/v3"
 )
 
@@ -29,14 +29,16 @@ func (m *jobManager) updateConfig(ctx context.Context, config Config) error {
 	if config.Spec != m.config.Spec {
 		m.config = config
 
-		common.Logger(ctx).Infof("job %s spec changed, restart all workers", m.jobName)
+		common.LoggerCtx(ctx).Info("job spec changed, restart all workers",
+			"job_name", m.jobName)
 		// spec changed, stop all jobs first and restart
 		m.clearJobs()
 		return m.syncWorkerNum()
 	} else if config.WorkerNum != m.config.WorkerNum {
 		m.config = config
 
-		common.Logger(ctx).Infof("job %s worker_num changed", m.jobName)
+		common.LoggerCtx(ctx).Info("job worker_num changed",
+			"job_name", m.jobName)
 		return m.syncWorkerNum()
 	}
 
@@ -47,7 +49,7 @@ func (m *jobManager) updateConfig(ctx context.Context, config Config) error {
 // unsafe add/remove jobs to keep worker_num
 func (m *jobManager) syncWorkerNum() error {
 	for len(m.entryMap) < m.config.WorkerNum {
-		key := rand.AlphaDigits(5)
+		key := random.AlphanumericString(10)
 		if _, ok := m.entryMap[key]; ok {
 			continue
 		}
@@ -84,17 +86,19 @@ func (m *jobManager) wrappedJob(key string) cron.Job {
 	return cron.FuncJob(func() {
 		var (
 			err error
-			ctx = context.WithValue(context.Background(), common.KeyRequestID, common.GenLogID())
-			log = common.Logger(ctx)
+			ctx = common.ContextWithBaseLogInfo(context.Background(), &common.BaseLogInfo{
+				RequestID: common.GenLogID(),
+				JobName:   m.jobName,
+			})
 		)
 
 		defer func() {
 			if err != nil {
-				log.Error(err)
+				common.LoggerCtx(ctx).Error("job execution failed", "error", err, "key", key)
 			}
 		}()
 		defer common.Recover(ctx, &err)
-		log.Infof("run job: %s-%s", m.jobName, key)
+		//log.Info("run job", "job_name", m.jobName, "key", key)
 		err = m.jobFunc(ctx)
 	})
 }

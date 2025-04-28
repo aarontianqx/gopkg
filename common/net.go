@@ -23,7 +23,7 @@ func init() {
 func getOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		AnonymousLogger().Fatal(err)
+		panic(err)
 	}
 	defer conn.Close()
 

@@ -2,91 +2,167 @@ package common
 
 import (
 	"context"
-	"fmt"
+	"io"
+	"log/slog"
 	"os"
-	"time"
-
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
-	"github.com/rifflock/lfshook"
-	"github.com/sirupsen/logrus"
+	"strings"
 )
 
-var (
-	servName      string
-	defaultLogger *logrus.Logger
+// contextKeyType is a custom type for context keys to avoid collisions
+type contextKeyType int
+
+// BaseLogInfo holds common logging attributes managed by this package.
+type BaseLogInfo struct {
+	RequestID string
+	JobName   string
+}
+
+// ContextExtractorFunc extracts key-value pairs from a context
+type ContextExtractorFunc func(ctx context.Context) []any
+
+// LogConfig holds configuration for the logger
+type LogConfig struct {
+	// Level sets the minimum level at which logs will be written
+	Level string
+	// AddSource determines whether to add source file and line info
+	AddSource bool
+	// Output is where logs are written (defaults to os.Stdout if nil)
+	Output io.Writer
+	// Format can be "json" or "text"
+	Format string
+}
+
+const (
+	// Context keys
+	baseLogInfoKey contextKeyType = iota // Key for BaseLogInfo struct
+
+	// Keys for log attributes
+	KeyTraceID   = "traceid"
+	KeySpanID    = "spanid"
+	KeyRequestID = "requestid"
+	KeyJobName   = "jobname"
 )
 
-func init() {
-	defaultLogger = &logrus.Logger{
-		Out:          os.Stdout,
-		Formatter:    new(logrus.TextFormatter),
-		Hooks:        make(logrus.LevelHooks),
-		Level:        logrus.InfoLevel,
-		ExitFunc:     os.Exit,
-		ReportCaller: true,
+// Initialize default handler and logger
+var handler slog.Handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	Level:     slog.LevelInfo,
+	AddSource: true,
+})
+
+var logger = slog.New(handler)
+
+// defaultExtractors holds the registered context extractor functions
+// Now includes trace info and base log info extractors.
+var defaultExtractors = []ContextExtractorFunc{extractBaseLogInfo}
+
+// Init initializes the logger with the given configuration
+// This should be called at application startup before using the logger
+func Init(config LogConfig) {
+	// Configure level
+	var level slog.Level
+	switch strings.ToLower(config.Level) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
 	}
+
+	// Use provided output or default to stdout
+	output := config.Output
+	if output == nil {
+		output = os.Stdout
+	}
+
+	// Configure handler based on format
+	handlerOptions := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: config.AddSource,
+	}
+
+	if strings.ToLower(config.Format) == "text" {
+		handler = slog.NewTextHandler(output, handlerOptions)
+	} else {
+		handler = slog.NewJSONHandler(output, handlerOptions)
+	}
+
+	logger = slog.New(handler)
 }
 
-func InitServiceLogHook(serviceName string, maxRemainCnt uint) {
-	servName = serviceName
-	defaultLogger.AddHook(newLfsHook(logrus.InfoLevel, "server", maxRemainCnt))
-	defaultLogger.AddHook(newLfsHook(logrus.WarnLevel, "error", maxRemainCnt))
+// Logger returns the base logger instance
+func Logger() *slog.Logger {
+	return logger
 }
 
-func NewLoggerWithLfsHook(logName string) *logrus.Logger {
-	tmpLogger := &logrus.Logger{
-		Out:          os.Stdout,
-		Formatter:    new(logrus.TextFormatter),
-		Hooks:        make(logrus.LevelHooks),
-		Level:        logrus.InfoLevel,
-		ExitFunc:     os.Exit,
-		ReportCaller: true,
-	}
-	tmpLogger.AddHook(newLfsHook(logrus.InfoLevel, logName, 30))
-	return tmpLogger
+// LoggerCtx returns a logger with context information extracted
+func LoggerCtx(ctx context.Context) *slog.Logger {
+	return logger.With(extractAllContextInfo(ctx)...)
 }
 
-func AnonymousLogger() *logrus.Entry {
-	return logrus.NewEntry(defaultLogger)
+// BaseLogInfoFromContext retrieves the BaseLogInfo from context.
+// Returns nil if context is nil, BaseLogInfo is not found, or type assertion fails.
+func BaseLogInfoFromContext(ctx context.Context) *BaseLogInfo {
+	if ctx == nil {
+		return nil
+	}
+
+	info, ok := ctx.Value(baseLogInfoKey).(BaseLogInfo)
+	if !ok {
+		return nil
+	}
+
+	// Return a copy of the info as a pointer
+	result := new(BaseLogInfo)
+	*result = info
+	return result
 }
 
-func Logger(ctx context.Context) *logrus.Entry {
-	entry := logrus.NewEntry(defaultLogger)
-	fields := logrus.Fields{}
-	for field := range loggerFields {
-		if val := ctx.Value(field); val != nil {
-			fields[field] = val
-		}
+// ContextWithBaseLogInfo adds BaseLogInfo to a context.
+// It performs a copy-on-write update if info is nil, otherwise directly uses the provided info.
+func ContextWithBaseLogInfo(ctx context.Context, info *BaseLogInfo) context.Context {
+	if info == nil {
+		return ctx
 	}
-	if len(fields) == 0 {
-		return entry
-	}
-	return entry.WithFields(fields)
+	return context.WithValue(ctx, baseLogInfoKey, *info) // Store a copy of the struct
 }
 
-func newLfsHook(logLevel logrus.Level, logName string, maxRemainCnt uint) logrus.Hook {
-	logPath := fmt.Sprintf("/var/log/%s/%s.log", servName, logName)
-	writer, err := rotatelogs.New(
-		logPath+".%Y%m%d%H",
-		rotatelogs.WithLinkName(logPath),
-		rotatelogs.WithRotationTime(24*time.Hour),
-		rotatelogs.WithMaxAge(-1),
-		rotatelogs.WithRotationCount(maxRemainCnt),
-	)
+// RegisterExtractor adds a context extractor function for logging
+func RegisterExtractor(extractor ContextExtractorFunc) {
+	// TODO: Consider thread safety if registration happens concurrently after init
+	defaultExtractors = append(defaultExtractors, extractor)
+}
 
-	if err != nil {
-		logrus.Errorf("config local file system for logger error: %v", err)
+// extractAllContextInfo runs all registered context extractors
+func extractAllContextInfo(ctx context.Context) []any {
+	var allArgs []any
+	for _, extractor := range defaultExtractors {
+		allArgs = append(allArgs, extractor(ctx)...)
+	}
+	return allArgs
+}
+
+// extractBaseLogInfo extracts common attributes from the BaseLogInfo struct in context.
+func extractBaseLogInfo(ctx context.Context) []any {
+	// Return early if context is nil
+	if ctx == nil {
+		return nil
+	}
+	info, ok := ctx.Value(baseLogInfoKey).(BaseLogInfo)
+	if !ok {
+		return nil
 	}
 
-	logrus.SetLevel(logLevel)
-	writerMap := lfshook.WriterMap{}
-	for level := logrus.PanicLevel; level <= logLevel; level += 1 {
-		writerMap[level] = writer
+	var ctxArgs []any
+	if info.RequestID != "" {
+		ctxArgs = append(ctxArgs, KeyRequestID, info.RequestID)
 	}
-
-	lfsHook := lfshook.NewHook(
-		writerMap,
-		&logrus.TextFormatter{DisableColors: true},
-	)
-	return lfsHook
+	if info.JobName != "" {
+		ctxArgs = append(ctxArgs, KeyJobName, info.JobName)
+	}
+	return ctxArgs
 }

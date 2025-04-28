@@ -1,11 +1,10 @@
 package common
 
 import (
+	"math/rand/v2"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/aarontianqx/gopkg/lang/rand"
 )
 
 const (
