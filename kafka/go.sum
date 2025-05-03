@@ -1,7 +1,7 @@
 github.com/IBM/sarama v1.45.1 h1:nY30XqYpqyXOXSNoe2XCgjj9jklGM1Ye94ierUb1jQ0=
 github.com/IBM/sarama v1.45.1/go.mod h1:qifDhA3VWSrQ1TjSMyxDl3nYL3oX2C83u+G6L79sq4w=
-github.com/aarontianqx/gopkg/common v0.0.3 h1:ssxj04/bqg+wjreUEY951CubjNmk+Zk4I/rtgZpnbK8=
-github.com/aarontianqx/gopkg/common v0.0.3/go.mod h1:bGqxHCylHNx1PhCZElyKci/ZVOUGlmne3AFZMOAahVE=
+github.com/aarontianqx/gopkg/common v0.0.4 h1:2x7iuWS3X2REf9lMxMoekjRxrn+Ubze6PLRI6q6ZaFQ=
+github.com/aarontianqx/gopkg/common v0.0.4/go.mod h1:bGqxHCylHNx1PhCZElyKci/ZVOUGlmne3AFZMOAahVE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

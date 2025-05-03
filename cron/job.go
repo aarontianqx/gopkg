@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/aarontianqx/gopkg/common"
+	"github.com/aarontianqx/gopkg/common/logimpl"
 	"github.com/aarontianqx/gopkg/random"
 	"github.com/robfig/cron/v3"
 )
@@ -86,7 +87,7 @@ func (m *jobManager) wrappedJob(key string) cron.Job {
 	return cron.FuncJob(func() {
 		var (
 			err error
-			ctx = common.ContextWithBaseLogInfo(context.Background(), &common.BaseLogInfo{
+			ctx = logimpl.ContextWithBaseLogInfo(context.Background(), &logimpl.BaseLogInfo{
 				RequestID: common.GenLogID(),
 				JobName:   m.jobName,
 			})

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-
 	"github.com/aarontianqx/gopkg/common"
+	"github.com/aarontianqx/gopkg/common/logimpl"
 )
 
 // HandlerFunc processes message values from Kafka
@@ -34,19 +34,17 @@ type consumerProxy struct {
 
 // StartDaemon runs the consumer event loop in a goroutine
 func (proxy *consumerProxy) StartDaemon(ctx context.Context) {
-	jobCtx := common.ContextWithBaseLogInfo(ctx, &common.BaseLogInfo{
+	jobCtx := logimpl.ContextWithBaseLogInfo(ctx, &logimpl.BaseLogInfo{
 		JobName: proxy.jobName,
 	})
 	defer common.Recovery(jobCtx)
 	log := common.LoggerCtx(jobCtx)
 
 	var (
-		switchConsume        bool
-		errChan              chan error
-		backoffTime          time.Duration = 1 * time.Second
-		maxBackoff           time.Duration = 60 * time.Second // Maximum backoff time: 60 seconds
-		consecutiveErrors    int           = 0
-		maxConsecutiveErrors int           = 10 // Maximum consecutive errors before giving up
+		switchConsume bool
+		errChan       chan error
+		backoffTime   time.Duration = 1 * time.Second
+		maxBackoff    time.Duration = 60 * time.Second // Maximum backoff time: 60 seconds
 	)
 
 	ticker := time.NewTicker(3 * time.Second)
@@ -60,9 +58,8 @@ func (proxy *consumerProxy) StartDaemon(ctx context.Context) {
 				if switchConsume {
 					log.Info("consumer switch on, start consumer")
 					errChan = proxy.Start(jobCtx)
-					// Reset backoff time and consecutive error count
+					// Reset backoff time
 					backoffTime = 1 * time.Second
-					consecutiveErrors = 0
 				} else {
 					errChan = nil
 					log.Info("consumer switch off, try to stop consumer")
@@ -75,30 +72,11 @@ func (proxy *consumerProxy) StartDaemon(ctx context.Context) {
 				continue
 			}
 
-			// Only count as error if not nil
+			// Only restart if not nil
 			if err != nil {
-				consecutiveErrors++
-
-				if consecutiveErrors > maxConsecutiveErrors {
-					log.Error("too many consecutive errors, stopping retry",
-						"consecutive_errors", consecutiveErrors,
-						"max_errors", maxConsecutiveErrors,
-						"job_name", proxy.jobName,
-						"last_error", err)
-
-					// Disable consumer, requires user intervention to re-enable
-					SetConsumerSwitch(proxy.jobName, false)
-					switchConsume = false
-					errChan = nil
-					proxy.Stop(jobCtx)
-					continue
-				}
-
 				log.Error("consume message failed, retrying with backoff",
 					"err", err,
-					"backoff_seconds", backoffTime.Seconds(),
-					"consecutive_errors", consecutiveErrors,
-					"job_name", proxy.jobName)
+					"backoff_seconds", backoffTime.Seconds())
 
 				// Stop current consumer
 				proxy.Stop(jobCtx)
@@ -229,7 +207,7 @@ func (proxy *consumerProxy) ConsumeClaim(session sarama.ConsumerGroupSession, cl
 // ConsumeSingle processes a single Kafka message
 func (proxy *consumerProxy) ConsumeSingle(session sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
 	// Create a context with job information
-	ctx := common.ContextWithBaseLogInfo(context.Background(), &common.BaseLogInfo{
+	ctx := logimpl.ContextWithBaseLogInfo(context.Background(), &logimpl.BaseLogInfo{
 		RequestID: common.GenLogID(),
 		JobName:   proxy.jobName,
 	})
