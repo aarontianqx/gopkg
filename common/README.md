@@ -16,16 +16,22 @@ Provides essential utilities for Go applications, focusing on logging, runtime m
 Configure the logger at application startup:
 
 ```go
-import "github.com/aarontianqx/gopkg/common"
+import (
+    "log/slog"
+    "os"
+    
+    "github.com/aarontianqx/gopkg/common"
+    "github.com/aarontianqx/gopkg/common/logimpl"
+)
 
 func main() {
     // Initialize logger with custom configuration
-    common.Init(common.LogConfig{
-        Level:     "info",     // "debug", "info", "warn", "error"
-        AddSource: true,       // Include source file and line numbers
-        Output:    os.Stdout,  // Output destination
-        Format:    "json",     // "json" or "text"
-    })
+    common.InitLogger(
+        logimpl.WithLevel(slog.LevelDebug), // LogLevel
+        logimpl.WithAddSource(true),        // Include source file and line numbers
+        logimpl.WithOutput(os.Stdout),      // Output destination
+        logimpl.WithFormat("json"),         // "json" or "text"
+    )
     
     // Use the logger anywhere in your code
     common.Logger().Info("Server starting", "port", 8080)
@@ -33,3 +39,4 @@ func main() {
     // With context (automatically includes trace IDs, request IDs, etc.)
     common.LoggerCtx(ctx).Debug("Processing request", "method", "GET")
 } 
+```

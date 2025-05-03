@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,29 +11,31 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-
 	"github.com/aarontianqx/gopkg/common"
+	"github.com/aarontianqx/gopkg/common/logimpl"
 	"github.com/aarontianqx/gopkg/kafka"
 )
 
 func main() {
-	common.Init(common.LogConfig{
-		Level:     "debug",   // "debug", "info", "warn", "error"
-		AddSource: false,     // Include source file and line numbers
-		Output:    os.Stdout, // Output destination
-		Format:    "json",    // "json" or "text"
-	})
+	common.InitLogger(
+		logimpl.WithLevel(slog.LevelDebug),
+		logimpl.WithAddSource(true),
+		logimpl.WithOutput(os.Stdout),
+		logimpl.WithFormat("json"),
+	)
 
 	// Create a context that can be cancelled
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	log := common.LoggerCtx(ctx)
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigChan
-		fmt.Printf("Received signal: %v, initiating shutdown\n", sig)
+		log.Info("Received signal, initiating shutdown", "signal", sig)
 		cancel()
 	}()
 
@@ -50,7 +52,8 @@ func main() {
 		EnableAsyncProducer: kafka.BoolPtr(true),
 	})
 	if err != nil {
-		log.Fatalf("Failed to create producer: %v", err)
+		log.Error("Failed to create producer", "err", err)
+		return
 	}
 	// No need to explicitly call Close, WaitStop will handle it
 
@@ -58,14 +61,14 @@ func main() {
 	topic := "feature_temp"
 
 	// Demonstrate synchronous sending
-	fmt.Println("Sending synchronous messages...")
+	log.Info("Sending synchronous messages...")
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("sync-key-%d", i)
 		err = producer.Send(ctx, topic, []byte(key), []byte(fmt.Sprintf("This is a synchronous message - %d", i)))
 		if err != nil {
-			log.Printf("Failed to send synchronous message: %v", err)
+			log.Error("Failed to send synchronous message", "err", err)
 		} else {
-			fmt.Println("Successfully sent synchronous message!")
+			log.Info("Successfully sent synchronous message!")
 		}
 	}
 
@@ -80,23 +83,23 @@ func main() {
 			key := fmt.Sprintf("async-key-%d", messageNum)
 			value := fmt.Sprintf("This is async message #%d", messageNum)
 
-			fmt.Printf("Sending asynchronous message #%d...\n", messageNum)
+			log.Info("Sending asynchronous message", "messageNum", messageNum)
 
 			// Send message asynchronously with callback
 			producer.SendAsync(ctx, topic, []byte(key), []byte(value),
 				func(msg *sarama.ProducerMessage, err error) {
 					if err != nil {
-						log.Printf("Failed to send message #%d: %v", messageNum, err)
+						log.Error("Failed to send message", "messageNum", messageNum, "err", err)
 						return
 					}
-					fmt.Printf("Successfully delivered message #%d to topic: %s, partition: %d, offset: %d\n",
+					log.Info("Successfully delivered message #%d to topic: %s, partition: %d, offset: %d\n",
 						messageNum, msg.Topic, msg.Partition, msg.Offset)
 				})
 		}()
 	}
 
 	// Wait for all async messages to be sent or until context is cancelled
-	fmt.Println("Waiting for all messages to be sent...")
+	log.Info("Waiting for all messages to be sent...")
 	waitChan := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -105,16 +108,16 @@ func main() {
 
 	select {
 	case <-waitChan:
-		fmt.Println("All messages sent successfully")
+		log.Info("All messages sent successfully")
 	case <-ctx.Done():
-		fmt.Println("Context cancelled before all messages could be sent")
+		log.Info("Context cancelled before all messages could be sent")
 	case <-time.After(10 * time.Second):
-		fmt.Println("Timed out waiting for messages to be sent")
+		log.Info("Timed out waiting for messages to be sent")
 	}
 
 	// Follow best practice: first cancel context (already done in signal handler)
 	// then wait for all producers and consumers to stop
-	fmt.Println("Waiting for producers to stop...")
+	log.Info("Waiting for producers to stop...")
 	kafka.WaitStop()
-	fmt.Println("All producers stopped, exiting")
+	log.Info("All producers stopped, exiting")
 }

@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/aarontianqx/gopkg/common"
+	"github.com/aarontianqx/gopkg/common/logimpl"
 	"github.com/aarontianqx/gopkg/kafka"
 )
 
@@ -32,22 +33,25 @@ func (c *TestConsumer) Handle(ctx context.Context, value []byte) error {
 }
 
 func main() {
-	common.Init(common.LogConfig{
-		Level:     "debug",   // "debug", "info", "warn", "error"
-		AddSource: false,     // Include source file and line numbers
-		Output:    os.Stdout, // Output destination
-		Format:    "json",    // "json" or "text"
-	})
+	common.InitLogger(
+		logimpl.WithLevel(slog.LevelDebug),
+		logimpl.WithAddSource(true),
+		logimpl.WithOutput(os.Stdout),
+		logimpl.WithFormat("json"),
+	)
+
 	// Create a cancelable context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	log := common.LoggerCtx(ctx)
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigChan
-		fmt.Printf("Received signal: %v, initiating shutdown\n", sig)
+		log.Info("Received signal, initiating shutdown", "signal", sig)
 		cancel()
 	}()
 
@@ -79,20 +83,20 @@ func main() {
 	kafka.RegisterConsumer(ctx, consumer2, true)
 
 	// Start all consumers
-	fmt.Println("Starting consumers...")
+	log.Info("Starting consumers...")
 	kafka.StartAllConsumers(ctx)
 
 	// Demonstrate disabling a consumer after a delay
 	time.AfterFunc(10*time.Second, func() {
-		fmt.Println("Disabling test-consumer-2...")
+		log.Info("Disabling test-consumer-2...")
 		kafka.SetConsumerSwitch("test-consumer-2", false)
 	})
 
 	// Wait for context cancellation (from signal handler)
 	<-ctx.Done()
-	fmt.Println("Context cancelled, waiting for consumers to stop...")
+	log.Info("Context cancelled, waiting for consumers to stop...")
 
 	// Wait for all consumers to finish
 	kafka.WaitStop()
-	fmt.Println("All consumers stopped, exiting")
+	log.Info("All consumers stopped, exiting")
 }
