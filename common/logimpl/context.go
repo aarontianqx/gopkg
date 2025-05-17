@@ -12,16 +12,26 @@ const (
 
 // Keys for log attributes
 const (
-	keyTraceID   = "traceid"
-	keySpanID    = "spanid"
-	keyRequestID = "requestid"
-	keyJobName   = "jobname"
+	keyTraceID       = "traceid"
+	keySpanID        = "spanid"
+	keyRequestID     = "requestid"
+	keyJobName       = "jobname"
+	keyTopic         = "topic"
+	keyConsumerGroup = "consumergroup"
+	keyMessageID     = "messageid"
+	keyPartition     = "partition"
+	keyOffset        = "offset"
 )
 
 // BaseLogInfo holds common logging attributes managed by this package.
 type BaseLogInfo struct {
-	RequestID string
-	JobName   string
+	RequestID     string
+	JobName       string
+	Topic         string
+	ConsumerGroup string
+	MessageID     string
+	Partition     int32
+	Offset        int64
 }
 
 // ContextWithBaseLogInfo adds BaseLogInfo to a context.

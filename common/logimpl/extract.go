@@ -24,5 +24,20 @@ func extractBaseLogInfo(ctx context.Context) []any {
 	if info.JobName != "" {
 		args = append(args, keyJobName, info.JobName)
 	}
+	if info.Topic != "" {
+		args = append(args, keyTopic, info.Topic)
+	}
+	if info.ConsumerGroup != "" {
+		args = append(args, keyConsumerGroup, info.ConsumerGroup)
+	}
+	if info.MessageID != "" {
+		args = append(args, keyMessageID, info.MessageID)
+	}
+	if info.Partition != 0 {
+		args = append(args, keyPartition, info.Partition)
+	}
+	if info.Offset != 0 {
+		args = append(args, keyOffset, info.Offset)
+	}
 	return args
 }
