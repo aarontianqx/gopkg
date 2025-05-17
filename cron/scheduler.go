@@ -45,7 +45,6 @@ func NewScheduler(withSeconds bool) Scheduler {
 		managerMap: make(map[string]*jobManager),
 		configFunc: nil,
 	}
-	s.daemonWg.Add(1) // Account for the startDaemon goroutine
 	if withSeconds {
 		s.c = cron.New(cron.WithSeconds())
 	} else {
@@ -94,11 +93,10 @@ func (s *scheduler) SetConfigFunc(f ConfigFunc) {
 
 // Start implements the Scheduler interface.
 func (s *scheduler) Start(ctx context.Context) {
-	s.c.Start()
-	common.LoggerCtx(ctx).Debug("Underlying cron job runner started")
-
-	// Start the background housekeeping goroutine.
 	s.daemonOnce.Do(func() {
+		s.c.Start()
+		common.LoggerCtx(ctx).Debug("Underlying cron job runner started")
+		s.daemonWg.Add(1) // Account for the startDaemon goroutine
 		go s.startDaemon(ctx)
 	})
 }

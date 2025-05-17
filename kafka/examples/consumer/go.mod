@@ -3,7 +3,7 @@ module consumer
 go 1.23.0
 
 require (
-	github.com/aarontianqx/gopkg/common v0.0.4
+	github.com/aarontianqx/gopkg/common v0.0.5
 	github.com/aarontianqx/gopkg/kafka v0.0.0
 )
 
@@ -30,5 +30,3 @@ require (
 )
 
 replace github.com/aarontianqx/gopkg/kafka => ../../
-
-replace github.com/aarontianqx/gopkg/common => ../../../common

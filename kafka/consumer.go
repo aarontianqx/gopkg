@@ -210,23 +210,20 @@ func (proxy *consumerProxy) ConsumeSingle(session sarama.ConsumerGroupSession, m
 	ctx := logimpl.ContextWithBaseLogInfo(context.Background(), &logimpl.BaseLogInfo{
 		RequestID: common.GenLogID(),
 		JobName:   proxy.jobName,
+		Topic:     msg.Topic,
+		Partition: msg.Partition,
+		Offset:    msg.Offset,
 	})
 
 	defer common.Recovery(ctx)
 	log := common.LoggerCtx(ctx)
-	log.Debug("message received from kafka",
-		"topic", msg.Topic,
-		"partition", msg.Partition,
-		"offset", msg.Offset)
+	log.Debug("message received from kafka")
 
 	// Extract and pass only the message value to handler
 	err := proxy.handler(ctx, msg.Value)
 	if err != nil {
 		log.Error("kafka message handling failed",
 			"err", err,
-			"topic", msg.Topic,
-			"partition", msg.Partition,
-			"offset", msg.Offset,
 			"value_size", len(msg.Value))
 	}
 	return err

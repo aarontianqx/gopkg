@@ -37,7 +37,7 @@ func main() {
 		logimpl.WithLevel(slog.LevelDebug),
 		logimpl.WithAddSource(true),
 		logimpl.WithOutput(os.Stdout),
-		logimpl.WithFormat("json"),
+		logimpl.WithFormat("text"),
 	)
 
 	// Create a cancelable context for graceful shutdown

@@ -1,5 +1,5 @@
-github.com/aarontianqx/gopkg/common v0.0.4 h1:2x7iuWS3X2REf9lMxMoekjRxrn+Ubze6PLRI6q6ZaFQ=
-github.com/aarontianqx/gopkg/common v0.0.4/go.mod h1:bGqxHCylHNx1PhCZElyKci/ZVOUGlmne3AFZMOAahVE=
+github.com/aarontianqx/gopkg/common v0.0.5 h1:ebkMgGeFOvgfOVI1vd3c1kXTbFGy798nush8gQGolB8=
+github.com/aarontianqx/gopkg/common v0.0.5/go.mod h1:bGqxHCylHNx1PhCZElyKci/ZVOUGlmne3AFZMOAahVE=
 github.com/aarontianqx/gopkg/random v0.0.1 h1:Ot4bLgDGiJV9aSSQJ45JBWavH+WjkJMSJ0jZlp/hfuI=
 github.com/aarontianqx/gopkg/random v0.0.1/go.mod h1:s34CnQPucvZl38zBgpW6Zeszy9WWjDO8TwGGyIrlCCY=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=

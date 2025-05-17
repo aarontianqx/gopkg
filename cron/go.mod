@@ -3,7 +3,7 @@ module github.com/aarontianqx/gopkg/cron
 go 1.23.0
 
 require (
-	github.com/aarontianqx/gopkg/common v0.0.4
+	github.com/aarontianqx/gopkg/common v0.0.5
 	github.com/aarontianqx/gopkg/random v0.0.1
 	github.com/robfig/cron/v3 v3.0.1
 )

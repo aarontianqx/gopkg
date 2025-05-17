@@ -1,7 +1,7 @@
 # Kafka Package
 
-This package provides a high-level wrapper around the Sarama library for Kafka interaction in Go applications. 
-It implements both consumer and producer functionality with built-in support for graceful shutdown and 
+This package provides a high-level wrapper around the Sarama library for Kafka interaction in Go applications.
+It implements both consumer and producer functionality with built-in support for graceful shutdown and
 connection management.
 
 ## Features
@@ -61,7 +61,7 @@ func main() {
         log.Printf("Received signal: %v, initiating shutdown", sig)
         cancel() // Cancel the context to trigger shutdown
     }()
-    
+
     // Create and register consumer
     consumer := &MyConsumer{
         config: kafka.ConsumerConfig{
@@ -73,24 +73,25 @@ func main() {
             AutoCommit:      false,
         },
     }
-    
+
     // Register the consumer (doesn't start consuming yet)
     kafka.RegisterConsumer(ctx, consumer)
-    
+
     // Enable the consumer
     kafka.SetConsumerSwitch("my-consumer", true)
-    
+
     // Start all registered consumers
     kafka.StartAllConsumers(ctx)
-    
+
     // Block until context is cancelled (by signal handler)
     <-ctx.Done()
     log.Println("Context cancelled, shutting down...")
-    
+
     // Wait for all consumers and producers to stop after shutdown
     kafka.WaitStop()
     log.Println("All consumers and producers stopped, exiting")
 }
+```
 
 ## Producer Usage
 
@@ -165,15 +166,15 @@ if err != nil {
 }
 
 // Send message asynchronously with callback
-producer.SendAsync(ctx, "my-topic", []byte("key"), []byte("async message"), 
+producer.SendAsync(ctx, "my-topic", []byte("key"), []byte("async message"),
     func(msg *sarama.ProducerMessage, err error) {
         if err != nil {
-            log.Printf("Failed to send message: %v", err)
-            return
-        }
-        log.Printf("Message delivered to topic %s, partition %d, offset %d", 
-            msg.Topic, msg.Partition, msg.Offset)
-    })
+        log.Printf("Failed to send message: %v", err)
+    return
+    }
+    log.Printf("Message delivered to topic %s, partition %d, offset %d",
+    msg.Topic, msg.Partition, msg.Offset)
+})
 ```
 
 ## Error Handling and Retry Strategy
@@ -219,8 +220,8 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | EnableSyncProducer | Enable synchronous producer (pointer type) | nil (true) |
 | EnableAsyncProducer | Enable asynchronous producer (pointer type) | nil (false) |
 
-> **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`, 
-> a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting. 
+> **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`,
+> a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting.
 > Use the provided `kafka.BoolPtr(bool)` helper function to create these values, e.g., `EnableSyncProducer: kafka.BoolPtr(true)`.
 
 ## Offset Management
