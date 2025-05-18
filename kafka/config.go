@@ -1,10 +1,31 @@
 package kafka
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/aarontianqx/gopkg/common"
 )
+
+// TLSConfig holds SSL/TLS configuration options for Kafka connections
+type TLSConfig struct {
+	// Enable TLS for connections to Kafka
+	Enable bool
+	// The path to the client's certificate in PEM format
+	CertFile string
+	// The path to the client's private key in PEM format
+	KeyFile string
+	// The path to the CA certificate file in PEM format for server certificate verification
+	CAFile string
+	// Whether to skip verification of the server's certificate chain and host name
+	InsecureSkipVerify bool
+	// Client authentication type (none, request, require)
+	ClientAuth string
+}
 
 // ProducerConfig holds configuration for a Kafka producer
 type ProducerConfig struct {
@@ -19,6 +40,8 @@ type ProducerConfig struct {
 	// Controls producer type
 	EnableSyncProducer  *bool // Default: true
 	EnableAsyncProducer *bool // Default: false
+	// SSL/TLS configuration
+	TLS *TLSConfig
 }
 
 // BoolPtr creates a pointer to a boolean value
@@ -71,6 +94,18 @@ func (c *ProducerConfig) toSaramaConfig() *sarama.Config {
 		saramaConfig.Producer.MaxMessageBytes = c.MaxMessageBytes
 	}
 
+	// Configure TLS if provided
+	if c.TLS != nil && c.TLS.Enable {
+		tlsConfig, err := configureTLS(c.TLS)
+		if err != nil {
+			// Log the error but don't fail - will attempt connection without TLS
+			common.Logger().Error("Failed to configure TLS", "error", err)
+		} else {
+			saramaConfig.Net.TLS.Enable = true
+			saramaConfig.Net.TLS.Config = tlsConfig
+		}
+	}
+
 	return saramaConfig
 }
 
@@ -89,6 +124,8 @@ type ConsumerConfig struct {
 	HeartbeatInterval time.Duration            // Default: 3s
 	MaxProcessingTime time.Duration            // Default: 100ms
 	MaxMessageBytes   int32                    // Default: 1MB, increase for larger messages
+	// SSL/TLS configuration
+	TLS *TLSConfig
 }
 
 // toSaramaConfig converts ConsumerConfig to sarama.Config
@@ -145,5 +182,59 @@ func (c *ConsumerConfig) toSaramaConfig() *sarama.Config {
 		cfg.Consumer.Fetch.Default = c.MaxMessageBytes
 	}
 
+	// Configure TLS if provided
+	if c.TLS != nil && c.TLS.Enable {
+		tlsConfig, err := configureTLS(c.TLS)
+		if err != nil {
+			// Log the error but don't fail - will attempt connection without TLS
+			common.Logger().Error("Failed to configure TLS", "error", err)
+		} else {
+			cfg.Net.TLS.Enable = true
+			cfg.Net.TLS.Config = tlsConfig
+		}
+	}
+
 	return cfg
+}
+
+// configureTLS creates a tls.Config from the TLSConfig options
+func configureTLS(config *TLSConfig) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: config.InsecureSkipVerify,
+	}
+
+	// Load client certificate and key if provided
+	if config.CertFile != "" && config.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate and key: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	// Load CA certificate if provided
+	if config.CAFile != "" {
+		caCert, err := os.ReadFile(config.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+		}
+
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = certPool
+	}
+
+	// Configure client authentication mode
+	switch config.ClientAuth {
+	case "none":
+		tlsConfig.ClientAuth = tls.NoClientCert
+	case "request":
+		tlsConfig.ClientAuth = tls.RequestClientCert
+	case "require":
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return tlsConfig, nil
 }

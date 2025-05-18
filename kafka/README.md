@@ -19,6 +19,12 @@ connection management.
   - Configurable retry, compression, and delivery guarantees
   - Callback support for asynchronous message delivery status
 
+- **Secure Communication**
+  - Support for SSL/TLS encryption and authentication
+  - CA certificate verification for server identity validation
+  - Client certificate authentication (mutual TLS)
+  - Conversion utilities for Java KeyStore files
+
 ## Consumer Usage
 
 ### Basic Setup
@@ -177,6 +183,74 @@ producer.SendAsync(ctx, "my-topic", []byte("key"), []byte("async message"),
 })
 ```
 
+## SSL/TLS Configuration
+
+This package supports secure connections via SSL/TLS. It uses PEM format certificate files (`.crt`, `.key`, etc.) to implement two authentication methods:
+
+1. **CA Certificate Authentication** - Encrypts communication and verifies server identity
+2. **Mutual TLS Authentication (Client Certificates)** - Also authenticates the client to the server
+
+#### SSL Configuration Example
+
+```go
+// Configure a consumer with SSL authentication
+consumer := &MyConsumer{
+    config: kafka.ConsumerConfig{
+        JobName:          "secure-consumer",
+        Topic:            "secure_topic",
+        BootstrapServers: "kafka-broker:9093",  // SSL typically uses a different port
+        ConsumerGroup:    "secure_group",
+        // SSL Configuration
+        TLS: &kafka.TLSConfig{
+            Enable: true,
+            CAFile: "/path/to/ca.crt",  // Required: CA certificate for server verification
+            
+            // Optional - only needed for mutual TLS (client authentication)
+            CertFile: "/path/to/client.crt",
+            KeyFile:  "/path/to/client.key",
+            
+            // Additional options
+            InsecureSkipVerify: false,  // Set to true to skip server certificate verification (not recommended for production)
+        },
+    },
+}
+
+// For producer
+producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
+    BootstrapServers: "kafka-broker:9093",
+    // SSL Configuration
+    TLS: &kafka.TLSConfig{
+        Enable: true,
+        CAFile: "/path/to/ca.crt",
+        // Add CertFile and KeyFile for mutual TLS if needed
+    },
+})
+```
+
+#### Java KeyStore (JKS) Conversion Guide
+
+This package doesn't directly support JKS files, but you can convert JKS files to PEM format using these commands:
+
+1. From keystore (client certificates):
+   ```bash
+   # Convert JKS to PKCS12 format
+   keytool -importkeystore -srckeystore keystore.jks -destkeystore keystore.p12 -srcstoretype JKS -deststoretype PKCS12
+   
+   # Extract private key from PKCS12
+   openssl pkcs12 -in keystore.p12 -out client.key -nodes -nocerts
+   
+   # Extract certificate from PKCS12
+   openssl pkcs12 -in keystore.p12 -out client.crt -nokeys
+   ```
+
+2. From truststore (CA certificates):
+   ```bash
+   # Export CA certificate from truststore to PEM format
+   keytool -exportcert -keystore truststore.jks -file ca.crt -rfc
+   ```
+
+After conversion, use the generated PEM files to configure the `CAFile`, `CertFile`, and `KeyFile` parameters.
+
 ## Error Handling and Retry Strategy
 
 The consumer implementation includes an exponential backoff retry mechanism when errors occur:
@@ -205,6 +279,7 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | HeartbeatInterval | Consumer group heartbeat interval | 3s |
 | MaxProcessingTime | Maximum processing time per message batch | 100ms |
 | MaxMessageBytes | Maximum message size in bytes | 1MB |
+| TLS | SSL/TLS configuration (see TLSConfig) | nil |
 
 ### Producer Configuration
 
@@ -219,6 +294,18 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | MaxMessageBytes | Maximum message size | 1MB |
 | EnableSyncProducer | Enable synchronous producer (pointer type) | nil (true) |
 | EnableAsyncProducer | Enable asynchronous producer (pointer type) | nil (false) |
+| TLS | SSL/TLS configuration (see TLSConfig) | nil |
+
+### TLS Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| Enable | Enable TLS for Kafka connections | false |
+| CertFile | Path to client certificate (PEM) | "" |
+| KeyFile | Path to client private key (PEM) | "" |
+| CAFile | Path to CA certificate (PEM) | "" |
+| InsecureSkipVerify | Skip server certificate verification | false |
+| ClientAuth | Client authentication type (none, request, require) | "" |
 
 > **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`,
 > a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting.
