@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -27,9 +28,23 @@ type TLSConfig struct {
 	ClientAuth string
 }
 
+// SASLConfig holds SASL authentication options for Kafka connections
+type SASLConfig struct {
+	// Enable SASL authentication
+	Enable bool
+	// SASL mechanism: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512
+	Mechanism string
+	// Username for SASL authentication
+	Username string
+	// Password for SASL authentication
+	Password string
+	// Whether to perform SASL handshake (Sarama default: true)
+	Handshake bool
+}
+
 // ProducerConfig holds configuration for a Kafka producer
 type ProducerConfig struct {
-	BootstrapServers string
+	Brokers []string
 	// Additional producer-specific settings
 	RequiredAcks     sarama.RequiredAcks     // Default: WaitForAll
 	Compression      sarama.CompressionCodec // Default: None
@@ -42,6 +57,8 @@ type ProducerConfig struct {
 	EnableAsyncProducer *bool // Default: false
 	// SSL/TLS configuration
 	TLS *TLSConfig
+	// SASL configuration
+	SASL *SASLConfig
 }
 
 // BoolPtr creates a pointer to a boolean value
@@ -106,15 +123,22 @@ func (c *ProducerConfig) toSaramaConfig() *sarama.Config {
 		}
 	}
 
+	// Configure SASL if provided
+	if c.SASL != nil && c.SASL.Enable {
+		if err := configureSASL(saramaConfig, c.SASL); err != nil {
+			common.Logger().Error("Failed to configure SASL", "error", err)
+		}
+	}
+
 	return saramaConfig
 }
 
 // ConsumerConfig holds configuration for a Kafka consumer
 type ConsumerConfig struct {
-	JobName          string // Job identifier
-	Topic            string
-	BootstrapServers string
-	ConsumerGroup    string
+	JobName       string // Job identifier
+	Topics        []string
+	Brokers       []string
+	ConsumerGroup string
 	// Additional consumer-specific settings
 	AutoCommit        bool                     // Default: false (recommended to set false to ensure messages are committed only after successful processing)
 	InitialOffset     int64                    // Default: OffsetNewest
@@ -126,6 +150,8 @@ type ConsumerConfig struct {
 	MaxMessageBytes   int32                    // Default: 1MB, increase for larger messages
 	// SSL/TLS configuration
 	TLS *TLSConfig
+	// SASL configuration
+	SASL *SASLConfig
 }
 
 // toSaramaConfig converts ConsumerConfig to sarama.Config
@@ -194,6 +220,13 @@ func (c *ConsumerConfig) toSaramaConfig() *sarama.Config {
 		}
 	}
 
+	// Configure SASL if provided
+	if c.SASL != nil && c.SASL.Enable {
+		if err := configureSASL(cfg, c.SASL); err != nil {
+			common.Logger().Error("Failed to configure SASL", "error", err)
+		}
+	}
+
 	return cfg
 }
 
@@ -237,4 +270,34 @@ func configureTLS(config *TLSConfig) (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+// configureSASL applies SASL settings to sarama.Config
+func configureSASL(cfg *sarama.Config, sasl *SASLConfig) error {
+	if sasl.Username == "" {
+		return fmt.Errorf("SASL username is required when SASL is enabled")
+	}
+	cfg.Net.SASL.Enable = true
+	cfg.Net.SASL.User = sasl.Username
+	cfg.Net.SASL.Password = sasl.Password
+	// Default handshake true unless explicitly set to false
+	cfg.Net.SASL.Handshake = true
+	if !sasl.Handshake {
+		cfg.Net.SASL.Handshake = false
+	}
+
+	mechanism := strings.ToUpper(strings.TrimSpace(sasl.Mechanism))
+	switch mechanism {
+	case sarama.SASLTypePlaintext:
+		cfg.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+	case sarama.SASLTypeSCRAMSHA256:
+		cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+		cfg.Net.SASL.SCRAMClientGeneratorFunc = scramClientGeneratorSHA256
+	case sarama.SASLTypeSCRAMSHA512:
+		cfg.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+		cfg.Net.SASL.SCRAMClientGeneratorFunc = scramClientGeneratorSHA512
+	default:
+		return fmt.Errorf("unsupported SASL mechanism: %s", sasl.Mechanism)
+	}
+	return nil
 }

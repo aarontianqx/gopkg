@@ -58,10 +58,10 @@ func main() {
 	// Configure and register consumers
 	consumer1 := &TestConsumer{
 		config: kafka.ConsumerConfig{
-			JobName:          "test-consumer-1",
-			Topic:            "test_topic",
-			BootstrapServers: "localhost:9092",
-			ConsumerGroup:    "test_consumer_group-1",
+			JobName:       "test-consumer-1",
+			Topics:        []string{"test_topic"},
+			Brokers:       []string{"localhost:9092"},
+			ConsumerGroup: "test_consumer_group-1",
 			// Set to false to ensure offsets are committed only after successful processing (best practice)
 			AutoCommit: false,
 		},
@@ -69,10 +69,10 @@ func main() {
 
 	consumer2 := &TestConsumer{
 		config: kafka.ConsumerConfig{
-			JobName:          "test-consumer-2",
-			Topic:            "test_topic",
-			BootstrapServers: "localhost:9092",
-			ConsumerGroup:    "test_consumer_group-2",
+			JobName:       "test-consumer-2",
+			Topics:        []string{"test_topic"},
+			Brokers:       []string{"localhost:9092"},
+			ConsumerGroup: "test_consumer_group-2",
 			// Set to false to ensure offsets are committed only after successful processing (best practice)
 			AutoCommit: false,
 		},

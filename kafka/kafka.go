@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/IBM/sarama"
@@ -26,13 +25,11 @@ func RegisterConsumer(ctx context.Context, consumer IConsumer, defaultStart bool
 	config := consumer.GetConfig()
 
 	common.LoggerCtx(ctx).Debug("Registering Sarama consumer", "job_name", config.JobName, "auto_start", defaultStart)
-	brokers := strings.Split(config.BootstrapServers, ",")
-	topics := []string{config.Topic}
 
 	proxy := &consumerProxy{
 		jobName:       config.JobName,
-		brokers:       brokers,
-		topics:        topics,
+		brokers:       config.Brokers,
+		topics:        config.Topics,
 		consumerGroup: config.ConsumerGroup,
 		saramaConfig:  config.toSaramaConfig(),
 		handler:       consumer.Handle,
@@ -155,7 +152,6 @@ func WaitStop() {
 func createProducer(ctx context.Context, config ProducerConfig) (IProducer, error) {
 	log := common.LoggerCtx(ctx)
 
-	brokers := strings.Split(config.BootstrapServers, ",")
 	saramaConfig := config.toSaramaConfig()
 
 	// Generate a producer ID
@@ -169,7 +165,7 @@ func createProducer(ctx context.Context, config ProducerConfig) (IProducer, erro
 	// Check if sync producer should be created
 	enableSync := config.EnableSyncProducer != nil && *config.EnableSyncProducer
 	if enableSync {
-		syncProducer, err = sarama.NewSyncProducer(brokers, saramaConfig)
+		syncProducer, err = sarama.NewSyncProducer(config.Brokers, saramaConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create sync producer: %w", err)
 		}
@@ -178,7 +174,7 @@ func createProducer(ctx context.Context, config ProducerConfig) (IProducer, erro
 	// Check if async producer should be created
 	enableAsync := config.EnableAsyncProducer != nil && *config.EnableAsyncProducer
 	if enableAsync {
-		asyncProducer, err = sarama.NewAsyncProducer(brokers, saramaConfig)
+		asyncProducer, err = sarama.NewAsyncProducer(config.Brokers, saramaConfig)
 		if err != nil {
 			// Close sync producer if already created
 			if syncProducer != nil {
@@ -191,7 +187,7 @@ func createProducer(ctx context.Context, config ProducerConfig) (IProducer, erro
 	// Create the producer
 	p := &producer{
 		id:            producerID,
-		brokers:       brokers,
+		brokers:       config.Brokers,
 		saramaConfig:  saramaConfig,
 		syncProducer:  syncProducer,
 		asyncProducer: asyncProducer,
@@ -203,6 +199,6 @@ func createProducer(ctx context.Context, config ProducerConfig) (IProducer, erro
 		go p.handleErrors(ctx)
 	}
 
-	log.Debug("Kafka producer initialized", "id", producerID, "brokers", brokers)
+	log.Debug("Kafka producer initialized", "id", producerID, "brokers", config.Brokers)
 	return p, nil
 }

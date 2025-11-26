@@ -41,7 +41,7 @@ func main() {
 
 	// Register a producer with synchronous and asynchronous capabilities
 	producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-		BootstrapServers: "localhost:9092",
+		Brokers:          []string{"localhost:9092"},
 		RequiredAcks:     sarama.WaitForAll,        // Most reliable setting
 		Compression:      sarama.CompressionSnappy, // Good balance of CPU/bandwidth
 		MaxRetries:       5,

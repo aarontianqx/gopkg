@@ -7,23 +7,17 @@ connection management.
 ## Features
 
 - **Managed Consumers**
-  - Multiple consumer support with consistent lifecycle management
-  - Dynamic start/stop control via context and switches
-  - Graceful shutdown handling for clean application exits
-  - Exponential backoff retry mechanism for error recovery
-  - Manual Offset management for ensuring at-least-once processing semantics
+    - Multiple consumer support with consistent lifecycle management
+    - Dynamic start/stop control via context and switches
+    - Graceful shutdown handling for clean application exits
+    - Exponential backoff retry mechanism for error recovery
+    - Manual Offset management for ensuring at-least-once processing semantics
 
 - **Managed Producers**
-  - Support for both synchronous and asynchronous message production
-  - Configurable creation of only the needed producer type (sync, async, or both)
-  - Configurable retry, compression, and delivery guarantees
-  - Callback support for asynchronous message delivery status
-
-- **Secure Communication**
-  - Support for SSL/TLS encryption and authentication
-  - CA certificate verification for server identity validation
-  - Client certificate authentication (mutual TLS)
-  - Conversion utilities for Java KeyStore files
+    - Support for both synchronous and asynchronous message production
+    - Configurable creation of only the needed producer type (sync, async, or both)
+    - Configurable retry, compression, and delivery guarantees
+    - Callback support for asynchronous message delivery status
 
 ## Consumer Usage
 
@@ -67,36 +61,34 @@ func main() {
         log.Printf("Received signal: %v, initiating shutdown", sig)
         cancel() // Cancel the context to trigger shutdown
     }()
-
+    
     // Create and register consumer
     consumer := &MyConsumer{
         config: kafka.ConsumerConfig{
-            JobName:          "my-consumer",
-            Topic:            "my-topic",
-            BootstrapServers: "localhost:9092",
-            ConsumerGroup:    "my-group",
+            JobName:       "my-consumer",
+            Topics:        []string{"my-topic"},
+            Brokers:       []string{"localhost:9092"},
+            ConsumerGroup: "my-group",
             // It's recommended to set AutoCommit to false for at-least-once processing
-            AutoCommit:      false,
+            AutoCommit:    false,
         },
     }
-
-    // Register the consumer (doesn't start consuming yet)
-    kafka.RegisterConsumer(ctx, consumer)
-
-    // Enable the consumer
-    kafka.SetConsumerSwitch("my-consumer", true)
-
+    
+    // Register the consumer; allow it to start when StartAllConsumers is called
+    kafka.RegisterConsumer(ctx, consumer, true)
+    
     // Start all registered consumers
     kafka.StartAllConsumers(ctx)
-
+    
     // Block until context is cancelled (by signal handler)
     <-ctx.Done()
     log.Println("Context cancelled, shutting down...")
-
+    
     // Wait for all consumers and producers to stop after shutdown
     kafka.WaitStop()
     log.Println("All consumers and producers stopped, exiting")
 }
+
 ```
 
 ## Producer Usage
@@ -131,7 +123,7 @@ func main() {
     
     // Create and register a producer
     producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-        BootstrapServers: "localhost:9092",
+        Brokers:          []string{"localhost:9092"},
         RequiredAcks:     sarama.WaitForAll,
         MaxRetries:       3,
         RetryBackoff:     200 * time.Millisecond,
@@ -163,7 +155,7 @@ func main() {
 ```go
 // Create an async producer
 producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-    BootstrapServers:    "localhost:9092",
+    Brokers:             []string{"localhost:9092"},
     EnableSyncProducer:  kafka.BoolPtr(false),  // Disable sync producer if not needed
     EnableAsyncProducer: kafka.BoolPtr(true),   // Enable async producer
 })
@@ -172,84 +164,16 @@ if err != nil {
 }
 
 // Send message asynchronously with callback
-producer.SendAsync(ctx, "my-topic", []byte("key"), []byte("async message"),
+producer.SendAsync(ctx, "my-topic", []byte("key"), []byte("async message"), 
     func(msg *sarama.ProducerMessage, err error) {
         if err != nil {
-        log.Printf("Failed to send message: %v", err)
-    return
-    }
-    log.Printf("Message delivered to topic %s, partition %d, offset %d",
-    msg.Topic, msg.Partition, msg.Offset)
-})
+            log.Printf("Failed to send message: %v", err)
+            return
+        }
+        log.Printf("Message delivered to topic %s, partition %d, offset %d", 
+            msg.Topic, msg.Partition, msg.Offset)
+    })
 ```
-
-## SSL/TLS Configuration
-
-This package supports secure connections via SSL/TLS. It uses PEM format certificate files (`.crt`, `.key`, etc.) to implement two authentication methods:
-
-1. **CA Certificate Authentication** - Encrypts communication and verifies server identity
-2. **Mutual TLS Authentication (Client Certificates)** - Also authenticates the client to the server
-
-#### SSL Configuration Example
-
-```go
-// Configure a consumer with SSL authentication
-consumer := &MyConsumer{
-    config: kafka.ConsumerConfig{
-        JobName:          "secure-consumer",
-        Topic:            "secure_topic",
-        BootstrapServers: "kafka-broker:9093",  // SSL typically uses a different port
-        ConsumerGroup:    "secure_group",
-        // SSL Configuration
-        TLS: &kafka.TLSConfig{
-            Enable: true,
-            CAFile: "/path/to/ca.crt",  // Required: CA certificate for server verification
-            
-            // Optional - only needed for mutual TLS (client authentication)
-            CertFile: "/path/to/client.crt",
-            KeyFile:  "/path/to/client.key",
-            
-            // Additional options
-            InsecureSkipVerify: false,  // Set to true to skip server certificate verification (not recommended for production)
-        },
-    },
-}
-
-// For producer
-producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-    BootstrapServers: "kafka-broker:9093",
-    // SSL Configuration
-    TLS: &kafka.TLSConfig{
-        Enable: true,
-        CAFile: "/path/to/ca.crt",
-        // Add CertFile and KeyFile for mutual TLS if needed
-    },
-})
-```
-
-#### Java KeyStore (JKS) Conversion Guide
-
-This package doesn't directly support JKS files, but you can convert JKS files to PEM format using these commands:
-
-1. From keystore (client certificates):
-   ```bash
-   # Convert JKS to PKCS12 format
-   keytool -importkeystore -srckeystore keystore.jks -destkeystore keystore.p12 -srcstoretype JKS -deststoretype PKCS12
-   
-   # Extract private key from PKCS12
-   openssl pkcs12 -in keystore.p12 -out client.key -nodes -nocerts
-   
-   # Extract certificate from PKCS12
-   openssl pkcs12 -in keystore.p12 -out client.crt -nokeys
-   ```
-
-2. From truststore (CA certificates):
-   ```bash
-   # Export CA certificate from truststore to PEM format
-   keytool -exportcert -keystore truststore.jks -file ca.crt -rfc
-   ```
-
-After conversion, use the generated PEM files to configure the `CAFile`, `CertFile`, and `KeyFile` parameters.
 
 ## Error Handling and Retry Strategy
 
@@ -257,7 +181,7 @@ The consumer implementation includes an exponential backoff retry mechanism when
 
 1. When a consumer encounters an error, it will be restarted with an initial backoff of 1 second
 2. If errors continue to occur, the backoff time doubles each time (2s, 4s, 8s, ...) up to a maximum of 60 seconds
-3. After 10 consecutive errors (configurable), the consumer will be disabled and require manual intervention
+3. The consumer continues retrying with exponential backoff up to 60 seconds; you can manually disable it via `kafka.SetConsumerSwitch(jobName, false)` if needed
 
 This helps prevent rapid restart loops that might overwhelm system resources while still allowing for automatic recovery from transient errors.
 
@@ -268,33 +192,35 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | JobName | Unique identifier for the consumer | required |
-| Topic | Kafka topic to consume | required |
-| BootstrapServers | Comma-separated list of Kafka brokers | required |
+| Topics | Kafka topics to consume | required |
+| Brokers | List of Kafka broker addresses | required |
 | ConsumerGroup | Consumer group ID | required |
-| AutoCommit | Whether to let Kafka auto-commit offsets | true (recommended: false) |
+| AutoCommit | Whether to let Kafka auto-commit offsets | false |
 | InitialOffset | Starting offset when no committed offset exists | OffsetNewest |
 | IsolationLevel | Transaction isolation level | ReadCommitted |
-| BalanceStrategies | List of partition balancing strategies | [RoundRobin] |
+| BalanceStrategies | List of partition balancing strategies | [BalanceStrategyRange] |
 | SessionTimeout | Consumer group session timeout | 10s |
 | HeartbeatInterval | Consumer group heartbeat interval | 3s |
 | MaxProcessingTime | Maximum processing time per message batch | 100ms |
 | MaxMessageBytes | Maximum message size in bytes | 1MB |
 | TLS | SSL/TLS configuration (see TLSConfig) | nil |
+| SASL | SASL configuration (see SASLConfig) | nil |
 
 ### Producer Configuration
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| BootstrapServers | Comma-separated list of Kafka brokers | required |
+| Brokers | List of Kafka broker addresses | required |
 | RequiredAcks | Acknowledgment level | WaitForAll |
 | Compression | Compression codec | None |
 | MaxRetries | Number of retry attempts | 3 |
 | RetryBackoff | Time between retries | 100ms |
-| EnableIdempotent | Enable exactly-once delivery (pointer type) | nil (false) |
+| EnableIdempotent | Enable idempotent producer (pointer type) | nil (false) |
 | MaxMessageBytes | Maximum message size | 1MB |
 | EnableSyncProducer | Enable synchronous producer (pointer type) | nil (true) |
 | EnableAsyncProducer | Enable asynchronous producer (pointer type) | nil (false) |
 | TLS | SSL/TLS configuration (see TLSConfig) | nil |
+| SASL | SASL configuration (see SASLConfig) | nil |
 
 ### TLS Configuration
 
@@ -306,6 +232,16 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | CAFile | Path to CA certificate (PEM) | "" |
 | InsecureSkipVerify | Skip server certificate verification | false |
 | ClientAuth | Client authentication type (none, request, require) | "" |
+
+### SASL Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| Enable | Enable SASL authentication | false |
+| Mechanism | SASL mechanism: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 | "" |
+| Username | SASL username | "" |
+| Password | SASL password | "" |
+| Handshake | Whether to perform SASL handshake | true |
 
 > **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`,
 > a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting.

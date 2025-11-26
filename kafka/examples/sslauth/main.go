@@ -61,11 +61,11 @@ func main() {
 	// Configure and register consumer with SSL/TLS
 	consumer := &SSLConsumer{
 		config: kafka.ConsumerConfig{
-			JobName:          "ssl-consumer",
-			Topic:            "secure_topic",
-			BootstrapServers: "kafka-broker:9093", // Note: SSL usually uses port 9093 or 9094
-			ConsumerGroup:    "ssl_consumer_group",
-			AutoCommit:       false,
+			JobName:       "ssl-consumer",
+			Topics:        []string{"secure_topic"},
+			Brokers:       []string{"kafka-broker:9093"}, // Note: SSL usually uses port 9093 or 9094
+			ConsumerGroup: "ssl_consumer_group",
+			AutoCommit:    false,
 			// SSL Configuration
 			TLS: &kafka.TLSConfig{
 				Enable:             true,
@@ -84,9 +84,9 @@ func main() {
 
 	// Create a producer with SSL/TLS
 	producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-		BootstrapServers: "kafka-broker:9093",
-		RequiredAcks:     sarama.WaitForAll,
-		Compression:      sarama.CompressionSnappy,
+		Brokers:      []string{"kafka-broker:9093"},
+		RequiredAcks: sarama.WaitForAll,
+		Compression:  sarama.CompressionSnappy,
 		// SSL Configuration with client certificate authentication
 		TLS: &kafka.TLSConfig{
 			Enable:             true,
