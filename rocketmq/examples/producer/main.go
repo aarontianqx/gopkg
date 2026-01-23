@@ -37,15 +37,15 @@ func main() {
 	}()
 
 	// 定义参数
-	topic := "test_topic"
+	topic := "marci_test_topic"
 	accessKey := os.Getenv("ACCESS_KEY_ID")
 	secretKey := os.Getenv("ACCESS_KEY_SECRET")
 
 	// 创建生产者，使用简化的配置
 	producer, err := rocketmq.RegisterProducer(ctx, rocketmq.ProducerConfig{
 		// 必需的配置项
-		Endpoint: "rocketmq.example.org:8080", // RocketMQ 服务端点
-		Topics:   []string{topic},             // 要生产的主题列表
+		Endpoint: "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080", // RocketMQ 服务端点
+		Topics:   []string{topic},                                           // 要生产的主题列表
 
 		// 可选的认证配置
 		AccessKey:    accessKey,
@@ -59,16 +59,36 @@ func main() {
 	// 发送同步消息
 	common.Logger().Info("Sending synchronous messages...")
 	for i := 0; i < 100; i++ {
-		key := fmt.Sprintf("key-%d", i)
-		keys := []string{key}
-		tag := "test-tag"
-		value := fmt.Sprintf("This is a synchronous message - %d", i)
-
-		err = producer.Send(ctx, topic, tag, keys, []byte(value))
+		msg := &rocketmq.Message{
+			Topic: topic,
+			Tag:   "test-tag",
+			Keys:  []string{fmt.Sprintf("key-%d", i)},
+			Body:  []byte(fmt.Sprintf("This is a synchronous message - %d", i)),
+		}
+		err = producer.Send(ctx, msg)
 		if err != nil {
 			common.Logger().Error("Failed to send synchronous message", "err", err)
 		} else {
-			common.Logger().Info("Successfully sent synchronous message", "key", key)
+			common.Logger().Info("Successfully sent synchronous message", "key", msg.Keys[0])
+		}
+	}
+
+	// 发送带 MessageGroup 的顺序消息（同一用户的消息会发到同一个 queue）
+	common.Logger().Info("Sending ordered messages with MessageGroup...")
+	for i := 0; i < 10; i++ {
+		userID := fmt.Sprintf("user_%d", i%3) // 3 个用户
+		msg := &rocketmq.Message{
+			Topic:        topic,
+			Tag:          "order-event",
+			Keys:         []string{fmt.Sprintf("order-%d", i)},
+			MessageGroup: userID, // 同一 userID 的消息会发到同一 queue
+			Body:         []byte(fmt.Sprintf("Order event for %s - order %d", userID, i)),
+		}
+		err = producer.Send(ctx, msg)
+		if err != nil {
+			common.Logger().Error("Failed to send ordered message", "err", err)
+		} else {
+			common.Logger().Info("Successfully sent ordered message", "userID", userID, "orderID", i)
 		}
 	}
 
@@ -80,15 +100,17 @@ func main() {
 		go func() {
 			defer wg.Done()
 
-			key := fmt.Sprintf("async-key-%d", messageNum)
-			keys := []string{key}
-			tag := "async-tag"
-			value := fmt.Sprintf("This is async message #%d", messageNum)
+			msg := &rocketmq.Message{
+				Topic: topic,
+				Tag:   "async-tag",
+				Keys:  []string{fmt.Sprintf("async-key-%d", messageNum)},
+				Body:  []byte(fmt.Sprintf("This is async message #%d", messageNum)),
+			}
 
 			common.Logger().Info("Sending asynchronous message", "number", messageNum)
 
 			// 使用回调函数发送异步消息
-			producer.SendAsync(ctx, topic, tag, keys, []byte(value),
+			producer.SendAsync(ctx, msg,
 				func(err error) {
 					if err != nil {
 						common.Logger().Error("Failed to send async message", "number", messageNum, "err", err)
@@ -101,15 +123,17 @@ func main() {
 
 	// 发送延迟消息
 	common.Logger().Info("Sending delayed message...")
-	delayKey := "delay-key-1"
-	delayKeys := []string{delayKey}
-	delayTag := "delay-tag"
-	delayValue := "This is a message that will be delivered after 5 seconds"
-	err = producer.SendDelay(ctx, topic, delayTag, delayKeys, []byte(delayValue), 5*time.Second)
+	delayMsg := &rocketmq.Message{
+		Topic: topic,
+		Tag:   "delay-tag",
+		Keys:  []string{"delay-key-1"},
+		Body:  []byte("This is a message that will be delivered after 5 seconds"),
+	}
+	err = producer.SendDelay(ctx, delayMsg, 5*time.Second)
 	if err != nil {
 		common.Logger().Error("Failed to send delayed message", "err", err)
 	} else {
-		common.Logger().Info("Successfully sent delayed message", "key", delayKey)
+		common.Logger().Info("Successfully sent delayed message", "key", delayMsg.Keys[0])
 	}
 
 	// 等待所有异步消息发送完成或者上下文被取消

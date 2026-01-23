@@ -24,13 +24,48 @@ func (c *TestConsumer) GetConfig() *rocketmq.ConsumerConfig {
 	return &c.config
 }
 
-// Handle processes a message from RocketMQ
-func (c *TestConsumer) Handle(ctx context.Context, value []byte) error {
+// Handle processes a message from RocketMQ.
+// The Message contains all metadata for business-side routing.
+func (c *TestConsumer) Handle(ctx context.Context, msg *rocketmq.Message) error {
 	log := common.LoggerCtx(ctx)
-	log.Info("Received message", "message", string(value))
-	// Simulate some processing time (increased to show concurrent processing benefits)
+
+	// Access message metadata for routing/filtering
+	log.Info("Received message",
+		"topic", msg.Topic,
+		"tag", msg.Tag,
+		"keys", msg.Keys,
+		"messageGroup", msg.MessageGroup,
+		"body", string(msg.Body),
+	)
+
+	// Example: Route based on Tag
+	switch msg.Tag {
+	case "order-event":
+		return c.handleOrderEvent(ctx, msg)
+	case "test-tag":
+		return c.handleTestMessage(ctx, msg)
+	default:
+		log.Info("Processing generic message")
+	}
+
+	// Simulate some processing time
 	time.Sleep(2 * time.Second)
-	log.Info("Message processing completed", "message", string(value))
+	log.Info("Message processing completed")
+	return nil
+}
+
+func (c *TestConsumer) handleOrderEvent(ctx context.Context, msg *rocketmq.Message) error {
+	log := common.LoggerCtx(ctx)
+	log.Info("Handling order event",
+		"messageGroup", msg.MessageGroup, // This is the user ID for ordered messages
+		"body", string(msg.Body),
+	)
+	return nil
+}
+
+func (c *TestConsumer) handleTestMessage(ctx context.Context, msg *rocketmq.Message) error {
+	log := common.LoggerCtx(ctx)
+	log.Info("Handling test message", "body", string(msg.Body))
 	return nil
 }
 
@@ -43,7 +78,6 @@ func main() {
 	)
 	// Create a cancelable context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -60,8 +94,8 @@ func main() {
 	consumer1 := &TestConsumer{
 		config: rocketmq.ConsumerConfig{
 			JobName:       "test-consumer-1",
-			Topic:         "test_topic",
-			Endpoint:      "rocketmq.example.org:8080", // Change to your RocketMQ endpoint
+			Topic:         "marci_test_topic",
+			Endpoint:      "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080", // Change to your RocketMQ endpoint
 			ConsumerGroup: "group_local_test_1",
 			// Optional authentication
 			AccessKey:         accessKey,
@@ -75,18 +109,6 @@ func main() {
 	rocketmq.RegisterConsumer(ctx, consumer1, true)
 
 	sw := true
-	//// Create another consumer that's initially disabled
-	//consumer2 := &TestConsumer{
-	//	config: rocketmq.ConsumerConfig{
-	//		JobName:       "test-consumer-2",
-	//		Topic:         "test_topic",
-	//		Endpoint:      "rocketmq.example.org:8080", // Change to your RocketMQ endpoint
-	//		ConsumerGroup: "group_local_test_2",
-	//	},
-	//}
-	//
-	//// Register consumer without auto-start
-	//rocketmq.RegisterConsumer(ctx, consumer2, false)
 
 	// Start all registered consumers (only those with the switch enabled will actually start)
 	rocketmq.StartAllConsumers(ctx)
@@ -105,18 +127,6 @@ func main() {
 			}
 		}
 	}(ctx)
-
-	//After 5 seconds, enable the second consumer
-	//time.AfterFunc(5*time.Second, func() {
-	//	common.Logger().Info("Enabling second consumer")
-	//	rocketmq.SetConsumerSwitch("test-consumer-2", true)
-	//})
-
-	// After 15 seconds, disable the first consumer
-	//time.AfterFunc(15*time.Second, func() {
-	//	common.Logger().Info("Disabling first consumer")
-	//	rocketmq.SetConsumerSwitch("test-consumer-1", false)
-	//})
 
 	fmt.Println("Consumers started. Press Ctrl+C to exit.")
 

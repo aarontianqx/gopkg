@@ -12,13 +12,13 @@ import (
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
 
-// HandlerFunc processes message values from RocketMQ
-type HandlerFunc func(ctx context.Context, value []byte) error
+// HandlerFunc processes messages from RocketMQ.
+type HandlerFunc func(ctx context.Context, msg *Message) error
 
 // IConsumer defines the interface for RocketMQ message consumers
 type IConsumer interface {
 	GetConfig() *ConsumerConfig
-	Handle(ctx context.Context, value []byte) error
+	Handle(ctx context.Context, msg *Message) error
 }
 
 // consumerProxy handles the lifecycle of a RocketMQ consumer
@@ -183,28 +183,32 @@ func (proxy *consumerProxy) processMessages(ctx context.Context, client rmq_clie
 
 				// Process message in a separate goroutine
 				proxy.workerWg.Add(1)
-				go func(message *rmq_client.MessageView) {
+				go func(messageView *rmq_client.MessageView) {
 					defer proxy.workerWg.Done()
 					defer func() { <-proxy.workerSemaphore }() // Release worker slot
-					proxy.consumeSingleAndAck(client, message)
+					proxy.consumeSingleAndAck(client, messageView)
 				}(msg)
 			}
 		}
 	}
 }
 
-func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer, msg *rmq_client.MessageView) {
-	ctx := buildConsumeContext(proxy, msg)
+func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer, mv *rmq_client.MessageView) {
+	ctx := buildConsumeContext(proxy, mv)
 	defer common.Recovery(ctx)
 
 	log := common.LoggerCtx(ctx)
-	log.Info("Handling message.", "tag", msg.GetTag())
-	if err := proxy.handler(ctx, msg.GetBody()); err != nil {
+
+	// Convert SDK MessageView to our unified Message type
+	msg := fromMessageView(mv)
+
+	log.Info("Handling message.", "tag", msg.Tag, "keys", msg.Keys, "messageGroup", msg.MessageGroup)
+	if err := proxy.handler(ctx, msg); err != nil {
 		log.Error("failed to handle message.", "error", err)
 		return
 	}
 
-	if err := client.Ack(ctx, msg); err != nil {
+	if err := client.Ack(ctx, mv); err != nil {
 		log.Error("failed to ack message", "error", err)
 	}
 

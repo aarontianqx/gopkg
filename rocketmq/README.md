@@ -30,7 +30,7 @@ import (
     "os/signal"
     "syscall"
     "time"
-    
+
     "github.com/aarontianqx/gopkg/common"
     "github.com/aarontianqx/gopkg/common/logimpl"
     "github.com/aarontianqx/gopkg/rocketmq"
@@ -55,10 +55,10 @@ func (c *MyConsumer) GetConfig() *rocketmq.ConsumerConfig {
     return &c.config
 }
 
-func (c *MyConsumer) Handle(ctx context.Context, value []byte) error {
-    // Process message value
+func (c *MyConsumer) Handle(ctx context.Context, msg *rocketmq.Message) error {
+    // Process message
     log := common.LoggerCtx(ctx)
-    log.Info("Received message", "message", string(value))
+    log.Info("Received message", "tag", msg.Tag, "body", string(msg.Body))
     return nil
 }
 
@@ -119,7 +119,7 @@ import (
     "os/signal"
     "syscall"
     "sync"
-    
+
     "github.com/aarontianqx/gopkg/common"
     "github.com/aarontianqx/gopkg/common/logimpl"
     "github.com/aarontianqx/gopkg/rocketmq"
@@ -163,19 +163,20 @@ func main() {
         return
     }
     
-    // Send message synchronously (multiple keys supported)
+    // Send message synchronously
     common.Logger().Info("Sending synchronous messages...")
     for i := 0; i < 5; i++ {
-        key := fmt.Sprintf("key-%d", i)
-        keys := []string{key}
-        tag := "test-tag"
-        value := fmt.Sprintf("This is a synchronous message - %d", i)
-
-        err = producer.Send(ctx, topic, tag, keys, []byte(value))
+        msg := &rocketmq.Message{
+            Topic: topic,
+            Tag:   "test-tag",
+            Keys:  []string{fmt.Sprintf("key-%d", i)},
+            Body:  []byte(fmt.Sprintf("This is a synchronous message - %d", i)),
+        }
+        err = producer.Send(ctx, msg)
         if err != nil {
             common.Logger().Error("Failed to send synchronous message", "error", err)
         } else {
-            common.Logger().Info("Successfully sent synchronous message", "key", key)
+            common.Logger().Info("Successfully sent synchronous message", "key", msg.Keys[0])
         }
     }
     
@@ -187,36 +188,39 @@ func main() {
         go func() {
             defer wg.Done()
 
-            key := fmt.Sprintf("async-key-%d", messageNum)
-            keys := []string{key}
-            tag := "async-tag"
-            value := fmt.Sprintf("This is async message #%d", messageNum)
+            msg := &rocketmq.Message{
+                Topic: topic,
+                Tag:   "async-tag",
+                Keys:  []string{fmt.Sprintf("async-key-%d", messageNum)},
+                Body:  []byte(fmt.Sprintf("This is async message #%d", messageNum)),
+            }
 
             common.Logger().Info("Sending asynchronous message", "number", messageNum)
 
             // Send message asynchronously with callback
-            producer.SendAsync(ctx, topic, tag, keys, []byte(value),
-                func(err error) {
-                    if err != nil {
-                        common.Logger().Error("Failed to send async message", "number", messageNum, "error", err)
-                        return
-                    }
-                    common.Logger().Info("Successfully delivered async message", "number", messageNum)
-                })
+            producer.SendAsync(ctx, msg, func(err error) {
+                if err != nil {
+                    common.Logger().Error("Failed to send async message", "number", messageNum, "error", err)
+                    return
+                }
+                common.Logger().Info("Successfully delivered async message", "number", messageNum)
+            })
         }()
     }
 
     // Send a delayed message
     common.Logger().Info("Sending delayed message...")
-    delayKey := "delay-key-1"
-    delayKeys := []string{delayKey}
-    delayTag := "delay-tag"
-    delayValue := "This is a message that will be delivered after 5 seconds"
-    err = producer.SendDelay(ctx, topic, delayTag, delayKeys, []byte(delayValue), 5*time.Second)
+    delayMsg := &rocketmq.Message{
+        Topic: topic,
+        Tag:   "delay-tag",
+        Keys:  []string{"delay-key-1"},
+        Body:  []byte("This is a message that will be delivered after 5 seconds"),
+    }
+    err = producer.SendDelay(ctx, delayMsg, 5*time.Second)
     if err != nil {
         common.Logger().Error("Failed to send delayed message", "error", err)
     } else {
-        common.Logger().Info("Successfully sent delayed message", "key", delayKey)
+        common.Logger().Info("Successfully sent delayed message", "key", delayMsg.Keys[0])
     }
     
     // Wait for all async messages to be sent or context to be cancelled
