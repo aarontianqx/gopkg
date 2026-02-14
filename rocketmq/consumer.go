@@ -164,14 +164,17 @@ func (proxy *consumerProxy) processMessages(ctx context.Context, client rmq_clie
 			msgs, err := client.Receive(ctx, receiveNum, proxy.invisibleDuration)
 			if err != nil {
 				if errRpc, ok := rmq_client.AsErrRpcStatus(err); ok && errRpc.GetCode() == int32(v2.Code_MESSAGE_NOT_FOUND) {
-					// no new message
+					// no new message, yield briefly
+					time.Sleep(100 * time.Millisecond)
+					continue
 				} else if strings.Contains(err.Error(), "CODE=DEADLINE_EXCEEDED") {
-					break
+					// Long polling timeout, retry immediately
+					continue
 				} else {
 					log.Warn("Error receiving messages, will retry", "error", err)
+					time.Sleep(3 * time.Second)
+					continue
 				}
-				time.Sleep(3 * time.Second)
-				continue
 			}
 
 			log.Debug("Received messages.", "count", len(msgs))
