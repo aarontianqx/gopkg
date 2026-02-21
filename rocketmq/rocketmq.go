@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/aarontianqx/gopkg/common"
 	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
@@ -40,7 +39,6 @@ func RegisterConsumer(ctx context.Context, consumer IConsumer, defaultStart bool
 		invisibleDuration: config.InvisibleDuration,
 		config:            config.toRocketMQConfig(),
 		handler:           consumer.Handle,
-		started:           false,
 		workerNum:         config.WorkerNum,
 	}
 	if config.TagExpression == "" {
@@ -48,16 +46,7 @@ func RegisterConsumer(ctx context.Context, consumer IConsumer, defaultStart bool
 	} else {
 		proxy.filterExpression = rmq_client.NewFilterExpression(config.TagExpression)
 	}
-	if proxy.maxMessageNum <= 0 {
-		proxy.maxMessageNum = 32
-	}
-	if proxy.invisibleDuration <= 0 {
-		proxy.invisibleDuration = 30 * time.Second
-	}
-	if proxy.workerNum <= 0 {
-		proxy.workerNum = 1
-	}
-	proxy.workerSemaphore = make(chan struct{}, proxy.workerNum)
+	proxy.withResolvedDefaults()
 
 	registerMu.Lock()
 	consumers[config.JobName] = proxy

@@ -256,10 +256,10 @@ isEnabled := rocketmq.GetConsumerSwitch("my-consumer")
 
 ## Important Implementation Notes
 
-1. **Concurrent Processing**: The consumer supports configurable concurrent message processing:
-   - Set `WorkerNum` > 1 to enable multi-worker concurrent consumption
-   - The consumer limits message pulling based on available workers to prevent over-pulling
-   - Messages are processed in parallel by worker goroutines
+1. **Pipeline Processing**: The consumer uses a fetch-worker pipeline:
+   - `FetchLoop` pulls messages in batches using `MaxMessageNum`, bounded by prefetch queue free slots
+   - A buffered prefetch queue decouples network IO from business handling
+   - A fixed worker pool (`WorkerNum`) processes and ACKs messages in parallel
 
 2. **Configuration Options**:
    - `MaxMessageNum`: Maximum messages to receive in a single poll (default: 32)
@@ -267,9 +267,10 @@ isEnabled := rocketmq.GetConsumerSwitch("my-consumer")
    - `WorkerNum`: Number of concurrent workers for message processing (default: 1)
 
 3. **Graceful Shutdown**: The consumer ensures clean shutdown in all scenarios:
-   - When context is cancelled or consumer switch is disabled, waits for all workers to complete
-   - All in-flight messages are processed and ACKed before stopping the client
-   - No message loss occurs during shutdown
+   - Session context cancellation interrupts blocking `Receive` calls immediately
+   - Once a batch is fetched, it is fully handed to workers before fetch loop exits
+   - Prefetched and in-flight messages are drained through the pipeline before client stop
+   - `StartDaemon` acts as the single lifecycle controller for session start/stop
 
 4. **Error Handling**: Common RocketMQ errors are handled gracefully:
    - No available messages: continues polling
