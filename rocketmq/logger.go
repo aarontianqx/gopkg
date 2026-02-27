@@ -47,7 +47,7 @@ func init() {
 		EncodeCaller:  zapcore.ShortCallerEncoder,
 	}
 	zlogger = NewSlogZapLogger(common.Logger(), zapcore.DebugLevel, encoderCfg)
-	//defer zlogger.Sync()
+	// defer zlogger.Sync()
 
 	os.Setenv(rmq_client.ENABLE_CONSOLE_APPENDER, "true")
 	rmq_client.ResetLogger()

@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	Topic     = "test_topic"
+	Topic     = "marci_test_topic"
 	GroupName = "group_local_test_1"
-	Endpoint  = "rocketmq.example.org:8080"
+	Endpoint  = "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080"
 )
 
 var (

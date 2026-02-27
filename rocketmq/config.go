@@ -18,16 +18,17 @@ type ProducerConfig struct {
 
 // ConsumerConfig holds configuration for a RocketMQ consumer
 type ConsumerConfig struct {
-	JobName           string        // Unique job identifier
-	Topic             string        // Topic to consume (single topic)
-	Endpoint          string        // RocketMQ server endpoint
-	ConsumerGroup     string        // Consumer group name
-	AccessKey         string        // Access key for authentication
-	AccessSecret      string        // Access Secret for authentication
-	TagExpression     string        // Tag filtering expression, e.g., "tag1 || tag2" (optional)
-	MaxMessageNum     int32         // Maximum number of messages to receive in a single poll (default: 32)
-	InvisibleDuration time.Duration // Message invisible duration after being pulled (default: 30s). This is used as the await time for Receive calls.
-	WorkerNum         int           // Number of concurrent workers for message processing (default: 1)
+	JobName           string                 // Unique job identifier
+	Topic             string                 // Topic to consume (single topic)
+	Endpoint          string                 // RocketMQ server endpoint
+	ConsumerGroup     string                 // Consumer group name
+	AccessKey         string                 // Access key for authentication
+	AccessSecret      string                 // Access Secret for authentication
+	TagExpression     string                 // Tag filtering expression, e.g., "tag1 || tag2" (optional)
+	MaxMessageNum     int32                  // Maximum number of messages to receive in a single poll (default: 32)
+	InvisibleDuration time.Duration          // Message invisible duration after being pulled (default: 30s). This is used as the await time for Receive calls.
+	WorkerNum         int                    // Number of concurrent workers for message processing (default: 1)
+	ErrorClassifier   ConsumeErrorClassifier // Optional consume error classifier. Nil keeps default requeue behavior.
 }
 
 // toRocketMQConfig converts ProducerConfig to rmq_client.Config

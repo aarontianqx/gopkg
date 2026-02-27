@@ -39,6 +39,7 @@ func RegisterConsumer(ctx context.Context, consumer IConsumer, defaultStart bool
 		invisibleDuration: config.InvisibleDuration,
 		config:            config.toRocketMQConfig(),
 		handler:           consumer.Handle,
+		errorClassifier:   config.ErrorClassifier,
 		workerNum:         config.WorkerNum,
 	}
 	if config.TagExpression == "" {

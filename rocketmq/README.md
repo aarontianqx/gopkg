@@ -30,7 +30,7 @@ import (
     "os/signal"
     "syscall"
     "time"
-
+    
     "github.com/aarontianqx/gopkg/common"
     "github.com/aarontianqx/gopkg/common/logimpl"
     "github.com/aarontianqx/gopkg/rocketmq"
@@ -85,6 +85,9 @@ func main() {
             MaxMessageNum:     32,              // Maximum messages to fetch in one receive call
             InvisibleDuration: 30 * time.Second, // Message invisible duration
             WorkerNum:         5,               // Enable 5 concurrent workers for faster processing
+            // Optional: classify consume errors for Ack/Requeue decisions.
+            // Nil means default behavior: all handler errors are requeued (not acked).
+            // ErrorClassifier: rocketmq.BizErrorNonRetryableClassifier,
             // Authentication (if needed)
             // AccessKey:     "your-access-key",
             // AccessSecret:  "your-secret-key",
@@ -119,7 +122,7 @@ import (
     "os/signal"
     "syscall"
     "sync"
-
+    
     "github.com/aarontianqx/gopkg/common"
     "github.com/aarontianqx/gopkg/common/logimpl"
     "github.com/aarontianqx/gopkg/rocketmq"
@@ -265,6 +268,7 @@ isEnabled := rocketmq.GetConsumerSwitch("my-consumer")
    - `MaxMessageNum`: Maximum messages to receive in a single poll (default: 32)
    - `InvisibleDuration`: Message invisible duration after being pulled (default: 30s)
    - `WorkerNum`: Number of concurrent workers for message processing (default: 1)
+   - `ErrorClassifier`: Optional callback to classify consume errors into `Ack` or `Requeue`
 
 3. **Graceful Shutdown**: The consumer ensures clean shutdown in all scenarios:
    - Session context cancellation interrupts blocking `Receive` calls immediately
@@ -276,6 +280,11 @@ isEnabled := rocketmq.GetConsumerSwitch("my-consumer")
    - No available messages: continues polling
    - Network timeouts: logs and retries
    - Other errors: logs and retries after a brief delay
+   - Handler errors are logged with structured fields; for `BizError`, logs include `errcode` and `errtrace`
+   - Consume action after handler errors is configurable via `ErrorClassifier`:
+     - `ConsumeErrorActionRequeue`: leave message unacked for redelivery
+     - `ConsumeErrorActionAck`: ack message even on handler error
+   - Built-in classifier: `BizErrorNonRetryableClassifier` (acks common non-retryable business status codes)
 
 5. **Producer Lifecycle**: Producers are managed centrally:
    - Synchronous, asynchronous, and delayed message sending

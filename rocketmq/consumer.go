@@ -10,6 +10,7 @@ import (
 
 	"github.com/aarontianqx/gopkg/common"
 	"github.com/aarontianqx/gopkg/common/logimpl"
+	"github.com/aarontianqx/gopkg/errext"
 	rmq_client "github.com/apache/rocketmq-clients/golang/v5"
 	v2 "github.com/apache/rocketmq-clients/golang/v5/protocol/v2"
 )
@@ -32,6 +33,7 @@ type consumerProxy struct {
 	invisibleDuration time.Duration
 	config            *rmq_client.Config
 	handler           HandlerFunc
+	errorClassifier   ConsumeErrorClassifier
 	mu                sync.Mutex // Protects session field
 	workerNum         int        // Number of concurrent workers
 	prefetchSize      int        // Buffered prefetch queue size
@@ -288,14 +290,28 @@ func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer
 	ctx := buildConsumeContext(proxy, mv)
 	defer common.Recovery(ctx)
 
-	log := common.LoggerCtx(ctx)
-
 	// Convert SDK MessageView to our unified Message type
 	msg := fromMessageView(mv)
+	log := common.LoggerCtx(ctx).With("tag", msg.Tag, "keys", msg.Keys, "messageGroup", msg.MessageGroup)
 
-	log.Info("Handling message.", "tag", msg.Tag, "keys", msg.Keys, "messageGroup", msg.MessageGroup)
+	log.Info("Handling message.")
 	if err := proxy.handler(ctx, msg); err != nil {
-		log.Error("failed to handle message.", "error", err)
+		if bizErr, ok := errext.AsBizError(err); ok {
+			log.Error("failed to handle message.",
+				"error", err,
+				"errcode", bizErr.Code(),
+				"errtrace", bizErr.StackTrace().String(),
+			)
+		} else {
+			log.Error("failed to handle message.", "error", err)
+		}
+		if proxy.classifyConsumeError(ctx, msg, err) == ConsumeErrorActionAck {
+			if ackErr := client.Ack(ctx, mv); ackErr != nil {
+				log.Error("failed to ack message after consume error", "error", ackErr)
+			} else {
+				log.Warn("Message acked due to consume error policy.", "action", "ack")
+			}
+		}
 		return
 	}
 
@@ -304,6 +320,14 @@ func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer
 	}
 
 	log.Info("Message processed and Acked successfully.")
+}
+
+func (proxy *consumerProxy) classifyConsumeError(ctx context.Context, msg *Message, err error) ConsumeErrorAction {
+	classifier := proxy.errorClassifier
+	if classifier == nil {
+		classifier = DefaultConsumeErrorClassifier
+	}
+	return classifier(ctx, msg, err)
 }
 
 // stopSession gracefully stops the current consumer session.
