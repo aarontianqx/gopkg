@@ -1,23 +1,25 @@
 # Kafka Package
 
-This package provides a high-level wrapper around the Sarama library for Kafka interaction in Go applications.
-It implements both consumer and producer functionality with built-in support for graceful shutdown and
+This package provides a high-level wrapper around the Sarama library for Kafka interaction in Go applications. 
+It implements both consumer and producer functionality with built-in support for graceful shutdown and 
 connection management.
 
 ## Features
 
 - **Managed Consumers**
-    - Multiple consumer support with consistent lifecycle management
-    - Dynamic start/stop control via context and switches
-    - Graceful shutdown handling for clean application exits
-    - Exponential backoff retry mechanism for error recovery
-    - Manual Offset management for ensuring at-least-once processing semantics
+  - Multiple consumer support with consistent lifecycle management
+  - Dynamic start/stop control via context and switches
+  - Graceful shutdown handling for clean application exits
+  - Exponential backoff retry mechanism for error recovery
+  - Manual Offset management for ensuring at-least-once processing semantics
+  - BizError-aware structured error logging (`errcode`, `errtrace`)
 
 - **Managed Producers**
-    - Support for both synchronous and asynchronous message production
-    - Configurable creation of only the needed producer type (sync, async, or both)
-    - Configurable retry, compression, and delivery guarantees
-    - Callback support for asynchronous message delivery status
+  - Support for both synchronous and asynchronous message production
+  - Configurable creation of only the needed producer type (sync, async, or both)
+  - Configurable retry, compression, and delivery guarantees
+  - Callback support for asynchronous message delivery status
+  - Trace/request propagation via Kafka headers (`x-trace-id`, `x-span-id`, `x-request-id`)
 
 ## Consumer Usage
 
@@ -185,6 +187,18 @@ The consumer implementation includes an exponential backoff retry mechanism when
 
 This helps prevent rapid restart loops that might overwhelm system resources while still allowing for automatic recovery from transient errors.
 
+For business handler failures, logs include `errcode` and `errtrace` when the returned error is `errext.BizError`.
+
+## Tracing Propagation
+
+Kafka producer/consumer now follow the same header convention as RocketMQ:
+
+- `x-trace-id`: OpenTelemetry trace ID
+- `x-span-id`: OpenTelemetry span ID
+- `x-request-id`: request ID from `common/logimpl.BaseLogInfo`
+
+Producer injects these headers from `context.Context`; consumer restores them into context so downstream logs and traces can be correlated across transport boundaries.
+
 ## Configuration
 
 ### Consumer Configuration
@@ -243,8 +257,8 @@ This helps prevent rapid restart loops that might overwhelm system resources whi
 | Password | SASL password | "" |
 | Handshake | Whether to perform SASL handshake | true |
 
-> **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`,
-> a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting.
+> **Note on boolean pointer fields:** For fields like `EnableSyncProducer`, `EnableAsyncProducer`, and `EnableIdempotent`, 
+> a `nil` value indicates "use default", whereas a non-nil pointer value indicates an explicit setting. 
 > Use the provided `kafka.BoolPtr(bool)` helper function to create these values, e.g., `EnableSyncProducer: kafka.BoolPtr(true)`.
 
 ## Offset Management

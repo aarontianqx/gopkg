@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"github.com/aarontianqx/gopkg/common/logimpl"
 	"github.com/aarontianqx/gopkg/kafka"
 )
+
+var BROKERS = strings.Split("alikafka-pre-cn-em942wkwo001-1-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-2-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-3-vpc.alikafka.aliyuncs.com:9092", ",")
 
 // TestConsumer implements the kafka.Consumer interface
 type TestConsumer struct {
@@ -39,19 +42,16 @@ func main() {
 		logimpl.WithOutput(os.Stdout),
 		logimpl.WithFormat("text"),
 	)
-
 	// Create a cancelable context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	log := common.LoggerCtx(ctx)
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigChan
-		log.Info("Received signal, initiating shutdown", "signal", sig)
+		common.Logger().Info("Received signal, initiating shutdown", "signal", sig)
 		cancel()
 	}()
 
@@ -59,9 +59,9 @@ func main() {
 	consumer1 := &TestConsumer{
 		config: kafka.ConsumerConfig{
 			JobName:       "test-consumer-1",
-			Topics:        []string{"test_topic"},
-			Brokers:       []string{"localhost:9092"},
-			ConsumerGroup: "test_consumer_group-1",
+			Topics:        []string{"feature_temp"},
+			Brokers:       BROKERS,
+			ConsumerGroup: "sagan_pipeline_v2_test",
 			// Set to false to ensure offsets are committed only after successful processing (best practice)
 			AutoCommit: false,
 		},
@@ -70,9 +70,9 @@ func main() {
 	consumer2 := &TestConsumer{
 		config: kafka.ConsumerConfig{
 			JobName:       "test-consumer-2",
-			Topics:        []string{"test_topic"},
-			Brokers:       []string{"localhost:9092"},
-			ConsumerGroup: "test_consumer_group-2",
+			Topics:        []string{"feature_temp"},
+			Brokers:       BROKERS,
+			ConsumerGroup: "sagan_pipeline_v2",
 			// Set to false to ensure offsets are committed only after successful processing (best practice)
 			AutoCommit: false,
 		},
@@ -83,20 +83,20 @@ func main() {
 	kafka.RegisterConsumer(ctx, consumer2, true)
 
 	// Start all consumers
-	log.Info("Starting consumers...")
+	common.Logger().Info("Starting consumers...")
 	kafka.StartAllConsumers(ctx)
 
 	// Demonstrate disabling a consumer after a delay
 	time.AfterFunc(10*time.Second, func() {
-		log.Info("Disabling test-consumer-2...")
+		common.Logger().Info("Disabling test-consumer-2...")
 		kafka.SetConsumerSwitch("test-consumer-2", false)
 	})
 
 	// Wait for context cancellation (from signal handler)
 	<-ctx.Done()
-	log.Info("Context cancelled, waiting for consumers to stop...")
+	common.Logger().Info("Context cancelled, waiting for consumers to stop...")
 
 	// Wait for all consumers to finish
 	kafka.WaitStop()
-	log.Info("All consumers stopped, exiting")
+	common.Logger().Info("All consumers stopped, exiting")
 }

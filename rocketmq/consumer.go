@@ -124,7 +124,7 @@ func (proxy *consumerProxy) startSession(ctx context.Context) {
 		}),
 	)
 	if err != nil {
-		log.Error("Failed to create RocketMQ SimpleConsumer", "error", err)
+		log.Error("Failed to create RocketMQ SimpleConsumer", "err", err)
 		cancel()
 		return
 	}
@@ -132,7 +132,7 @@ func (proxy *consumerProxy) startSession(ctx context.Context) {
 
 	err = client.Start()
 	if err != nil {
-		log.Error("Start consumer client failed.", "error", err)
+		log.Error("Start consumer client failed.", "err", err)
 		cancel()
 		return
 	}
@@ -150,7 +150,7 @@ func (proxy *consumerProxy) startSession(ctx context.Context) {
 		daemonLog.Warn("Consumer session already exists, stopping duplicated client.", "sessionSeq", sessionSeq)
 		cancel()
 		if stopErr := client.GracefulStop(); stopErr != nil {
-			daemonLog.Error("Failed to stop duplicated consumer client", "error", stopErr, "sessionSeq", sessionSeq)
+			daemonLog.Error("Failed to stop duplicated consumer client", "err", stopErr, "sessionSeq", sessionSeq)
 		}
 		return
 	}
@@ -197,7 +197,7 @@ func (proxy *consumerProxy) runSession(ctx context.Context, session *consumerSes
 	pipelineWg.Wait()
 
 	if err := session.client.GracefulStop(); err != nil {
-		log.Error("Error stopping consumer client.", "error", err, "sessionSeq", session.seq)
+		log.Error("Error stopping consumer client.", "err", err, "sessionSeq", session.seq)
 	} else {
 		log.Info("Consumer client stopped successfully.", "sessionSeq", session.seq)
 	}
@@ -238,7 +238,7 @@ func (proxy *consumerProxy) fetchLoop(ctx context.Context, client rmq_client.Sim
 				continue
 			}
 
-			log.Warn("Error receiving messages, will retry", "error", err)
+			log.Warn("Error receiving messages, will retry", "err", err)
 			select {
 			case <-ctx.Done():
 				return
@@ -298,16 +298,16 @@ func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer
 	if err := proxy.handler(ctx, msg); err != nil {
 		if bizErr, ok := errext.AsBizError(err); ok {
 			log.Error("failed to handle message.",
-				"error", err,
+				"err", err,
 				"errcode", bizErr.Code(),
 				"errtrace", bizErr.StackTrace().String(),
 			)
 		} else {
-			log.Error("failed to handle message.", "error", err)
+			log.Error("failed to handle message.", "err", err)
 		}
 		if proxy.classifyConsumeError(ctx, msg, err) == ConsumeErrorActionAck {
 			if ackErr := client.Ack(ctx, mv); ackErr != nil {
-				log.Error("failed to ack message after consume error", "error", ackErr)
+				log.Error("failed to ack message after consume error", "err", ackErr)
 			} else {
 				log.Warn("Message acked due to consume error policy.", "action", "ack")
 			}
@@ -316,7 +316,7 @@ func (proxy *consumerProxy) consumeSingleAndAck(client rmq_client.SimpleConsumer
 	}
 
 	if err := client.Ack(ctx, mv); err != nil {
-		log.Error("failed to ack message", "error", err)
+		log.Error("failed to ack message", "err", err)
 	}
 
 	log.Info("Message processed and Acked successfully.")

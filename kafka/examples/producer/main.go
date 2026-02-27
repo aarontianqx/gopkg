@@ -6,15 +6,19 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/IBM/sarama"
+
 	"github.com/aarontianqx/gopkg/common"
 	"github.com/aarontianqx/gopkg/common/logimpl"
 	"github.com/aarontianqx/gopkg/kafka"
 )
+
+var BROKERS = strings.Split("alikafka-pre-cn-em942wkwo001-1-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-2-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-3-vpc.alikafka.aliyuncs.com:9092", ",")
 
 func main() {
 	common.InitLogger(
@@ -28,20 +32,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	log := common.LoggerCtx(ctx)
-
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigChan
-		log.Info("Received signal, initiating shutdown", "signal", sig)
+		common.Logger().Info("Received signal, initiating shutdown", "signal", sig)
 		cancel()
 	}()
 
 	// Register a producer with synchronous and asynchronous capabilities
 	producer, err := kafka.RegisterProducer(ctx, kafka.ProducerConfig{
-		Brokers:          []string{"localhost:9092"},
+		Brokers:          BROKERS,
 		RequiredAcks:     sarama.WaitForAll,        // Most reliable setting
 		Compression:      sarama.CompressionSnappy, // Good balance of CPU/bandwidth
 		MaxRetries:       5,
@@ -52,8 +54,7 @@ func main() {
 		EnableAsyncProducer: kafka.BoolPtr(true),
 	})
 	if err != nil {
-		log.Error("Failed to create producer", "err", err)
-		return
+		common.Logger().Error("Failed to register producer", "err", err)
 	}
 	// No need to explicitly call Close, WaitStop will handle it
 
@@ -61,14 +62,14 @@ func main() {
 	topic := "feature_temp"
 
 	// Demonstrate synchronous sending
-	log.Info("Sending synchronous messages...")
+	common.Logger().Info("Sending synchronous message...")
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("sync-key-%d", i)
 		err = producer.Send(ctx, topic, []byte(key), []byte(fmt.Sprintf("This is a synchronous message - %d", i)))
 		if err != nil {
-			log.Error("Failed to send synchronous message", "err", err)
+			common.Logger().Error("Failed to send synchronous message", "err", err)
 		} else {
-			log.Info("Successfully sent synchronous message!")
+			common.Logger().Info("Successfully sent synchronous message!")
 		}
 	}
 
@@ -83,23 +84,26 @@ func main() {
 			key := fmt.Sprintf("async-key-%d", messageNum)
 			value := fmt.Sprintf("This is async message #%d", messageNum)
 
-			log.Info("Sending asynchronous message", "messageNum", messageNum)
+			common.Logger().Info("Sending asynchronous message", "number", messageNum)
 
 			// Send message asynchronously with callback
 			producer.SendAsync(ctx, topic, []byte(key), []byte(value),
 				func(msg *sarama.ProducerMessage, err error) {
 					if err != nil {
-						log.Error("Failed to send message", "messageNum", messageNum, "err", err)
+						common.Logger().Error("Failed to send message", "number", messageNum, "err", err)
 						return
 					}
-					log.Info("Successfully delivered message #%d to topic: %s, partition: %d, offset: %d\n",
-						messageNum, msg.Topic, msg.Partition, msg.Offset)
+					common.Logger().Info("Successfully delivered message",
+						"number", messageNum,
+						"topic", msg.Topic,
+						"partition", msg.Partition,
+						"offset", msg.Offset)
 				})
 		}()
 	}
 
 	// Wait for all async messages to be sent or until context is cancelled
-	log.Info("Waiting for all messages to be sent...")
+	common.Logger().Info("Waiting for all messages to be sent...")
 	waitChan := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -108,16 +112,16 @@ func main() {
 
 	select {
 	case <-waitChan:
-		log.Info("All messages sent successfully")
+		common.Logger().Info("All messages sent successfully")
 	case <-ctx.Done():
-		log.Info("Context cancelled before all messages could be sent")
+		common.Logger().Info("Context cancelled before all messages could be sent")
 	case <-time.After(10 * time.Second):
-		log.Info("Timed out waiting for messages to be sent")
+		common.Logger().Info("Timed out waiting for messages to be sent")
 	}
 
 	// Follow best practice: first cancel context (already done in signal handler)
 	// then wait for all producers and consumers to stop
-	log.Info("Waiting for producers to stop...")
+	common.Logger().Info("Waiting for producers to stop...")
 	kafka.WaitStop()
-	log.Info("All producers stopped, exiting")
+	common.Logger().Info("All producers stopped, exiting")
 }

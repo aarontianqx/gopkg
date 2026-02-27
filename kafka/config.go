@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/aarontianqx/gopkg/common"
+
+	"github.com/IBM/sarama"
 )
 
 // TLSConfig holds SSL/TLS configuration options for Kafka connections
@@ -116,7 +117,7 @@ func (c *ProducerConfig) toSaramaConfig() *sarama.Config {
 		tlsConfig, err := configureTLS(c.TLS)
 		if err != nil {
 			// Log the error but don't fail - will attempt connection without TLS
-			common.Logger().Error("Failed to configure TLS", "error", err)
+			common.Logger().Error("Failed to configure TLS", "err", err)
 		} else {
 			saramaConfig.Net.TLS.Enable = true
 			saramaConfig.Net.TLS.Config = tlsConfig
@@ -126,7 +127,7 @@ func (c *ProducerConfig) toSaramaConfig() *sarama.Config {
 	// Configure SASL if provided
 	if c.SASL != nil && c.SASL.Enable {
 		if err := configureSASL(saramaConfig, c.SASL); err != nil {
-			common.Logger().Error("Failed to configure SASL", "error", err)
+			common.Logger().Error("Failed to configure SASL", "err", err)
 		}
 	}
 
@@ -213,7 +214,7 @@ func (c *ConsumerConfig) toSaramaConfig() *sarama.Config {
 		tlsConfig, err := configureTLS(c.TLS)
 		if err != nil {
 			// Log the error but don't fail - will attempt connection without TLS
-			common.Logger().Error("Failed to configure TLS", "error", err)
+			common.Logger().Error("Failed to configure TLS", "err", err)
 		} else {
 			cfg.Net.TLS.Enable = true
 			cfg.Net.TLS.Config = tlsConfig
@@ -223,7 +224,7 @@ func (c *ConsumerConfig) toSaramaConfig() *sarama.Config {
 	// Configure SASL if provided
 	if c.SASL != nil && c.SASL.Enable {
 		if err := configureSASL(cfg, c.SASL); err != nil {
-			common.Logger().Error("Failed to configure SASL", "error", err)
+			common.Logger().Error("Failed to configure SASL", "err", err)
 		}
 	}
 

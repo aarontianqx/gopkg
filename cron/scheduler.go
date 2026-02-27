@@ -169,7 +169,7 @@ func (s *scheduler) startDaemon(ctx context.Context) {
 						log.Info("Applying dynamic config update", "job_name", jobName, "new_spec", config.Spec, "new_workers", config.WorkerNum)
 						err := s.SyncConfig(ctx, jobName, *config)
 						if err != nil {
-							log.Error("Failed to sync dynamic job config", "error", err, "job_name", jobName)
+							log.Error("Failed to sync dynamic job config", "err", err, "job_name", jobName)
 						}
 					}
 				}

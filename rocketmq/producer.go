@@ -49,7 +49,7 @@ func (p *producer) Send(ctx context.Context, msg *Message) error {
 	_, err := p.client.Send(ctx, rmqMsg)
 	if err != nil {
 		common.LoggerCtx(ctx).Error("Failed to send synchronous message.",
-			"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "error", err)
+			"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "err", err)
 	}
 	return err
 }
@@ -66,7 +66,7 @@ func (p *producer) SendAsync(ctx context.Context, msg *Message, callback func(er
 		// Error logging for async send failures is handled within this callback wrapper if an error occurs.
 		if err != nil {
 			common.LoggerCtx(ctx).Error("Failed to send asynchronous message.",
-				"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "error", err)
+				"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "err", err)
 		}
 		callback(err)
 	})
@@ -81,7 +81,7 @@ func (p *producer) SendDelay(ctx context.Context, msg *Message, delay time.Durat
 	_, err := p.client.Send(ctx, rmqMsg)
 	if err != nil {
 		common.LoggerCtx(ctx).Error("Failed to send delayed message.",
-			"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "delay", delay.String(), "error", err)
+			"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "delay", delay.String(), "err", err)
 	}
 	return err
 }
@@ -95,7 +95,7 @@ func (p *producer) SendDelayAsync(ctx context.Context, msg *Message, delay time.
 	p.client.SendAsync(ctx, rmqMsg, func(_ context.Context, _ []*rmq_client.SendReceipt, err error) {
 		if err != nil {
 			common.LoggerCtx(ctx).Error("Failed to send asynchronous delayed message.",
-				"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "delay", delay.String(), "error", err)
+				"topic", msg.Topic, "tag", msg.Tag, "keys", msg.Keys, "delay", delay.String(), "err", err)
 		}
 		callback(err)
 	})
@@ -110,7 +110,7 @@ func (p *producer) Close() error {
 		log.Info("Attempting to stop producer client.", "id", p.id)
 		err = p.client.GracefulStop()
 		if err != nil {
-			log.Error("Error stopping producer client.", "id", p.id, "error", err)
+			log.Error("Error stopping producer client.", "id", p.id, "err", err)
 		} else {
 			log.Info("Producer client stopped successfully.", "id", p.id)
 		}

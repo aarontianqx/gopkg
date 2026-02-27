@@ -95,7 +95,7 @@ func (m *jobManager) wrappedJob(key string) cron.Job {
 
 		defer func() {
 			if err != nil {
-				common.LoggerCtx(ctx).Error("job execution failed", "error", err, "key", key)
+				common.LoggerCtx(ctx).Error("job execution failed", "err", err, "key", key)
 			}
 		}()
 		defer common.Recover(ctx, &err)

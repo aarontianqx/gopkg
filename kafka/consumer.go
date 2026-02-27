@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+
 	"github.com/aarontianqx/gopkg/common"
 	"github.com/aarontianqx/gopkg/common/logimpl"
+	"github.com/aarontianqx/gopkg/errext"
 )
 
 // HandlerFunc processes message values from Kafka
@@ -206,9 +208,14 @@ func (proxy *consumerProxy) ConsumeClaim(session sarama.ConsumerGroupSession, cl
 
 // ConsumeSingle processes a single Kafka message
 func (proxy *consumerProxy) ConsumeSingle(session sarama.ConsumerGroupSession, msg *sarama.ConsumerMessage) error {
-	// Create a context with job information
-	ctx := logimpl.ContextWithBaseLogInfo(context.Background(), &logimpl.BaseLogInfo{
-		RequestID: common.GenLogID(),
+	ctx := extractTraceFromMessage(context.Background(), msg)
+
+	requestID := getMessageHeader(msg, propertyRequestID)
+	if requestID == "" {
+		requestID = common.GenLogID()
+	}
+	ctx = logimpl.ContextWithBaseLogInfo(ctx, &logimpl.BaseLogInfo{
+		RequestID: requestID,
 		JobName:   proxy.jobName,
 		Topic:     msg.Topic,
 		Partition: msg.Partition,
@@ -222,9 +229,16 @@ func (proxy *consumerProxy) ConsumeSingle(session sarama.ConsumerGroupSession, m
 	// Extract and pass only the message value to handler
 	err := proxy.handler(ctx, msg.Value)
 	if err != nil {
-		log.Error("kafka message handling failed",
-			"err", err,
-			"value_size", len(msg.Value))
+		entry := log.With("value_size", len(msg.Value))
+		if bizErr, ok := errext.AsBizError(err); ok {
+			entry.Error("kafka message handling failed",
+				"err", err,
+				"errcode", bizErr.Code(),
+				"errtrace", bizErr.StackTrace().String(),
+			)
+		} else {
+			entry.Error("kafka message handling failed", "err", err)
+		}
 	}
 	return err
 }

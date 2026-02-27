@@ -4,11 +4,14 @@ go 1.24.0
 
 require (
 	github.com/IBM/sarama v1.46.3
-	github.com/aarontianqx/gopkg/common v0.0.5
+	github.com/aarontianqx/gopkg/common v0.0.6
+	github.com/aarontianqx/gopkg/errext v0.0.1
 	github.com/xdg-go/scram v1.2.0
+	go.opentelemetry.io/otel/trace v1.40.0
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
@@ -20,12 +23,13 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.22 // indirect
+	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	go.opentelemetry.io/otel v1.40.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 )

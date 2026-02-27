@@ -53,14 +53,14 @@ func (p *producer) Send(ctx context.Context, topic string, key []byte, value []b
 		msg.Key = sarama.ByteEncoder(key)
 	}
 
-	// Apply any message transformations
-	p.injectTraceContext(ctx, msg)
+	// Inject tracing and request identifiers into Kafka headers.
+	injectTraceToMessage(ctx, msg)
 
 	_, _, err := p.syncProducer.SendMessage(msg)
 	if err != nil {
 		common.LoggerCtx(ctx).Error("Failed to send message",
 			"topic", topic,
-			"error", err,
+			"err", err,
 		)
 		return fmt.Errorf("failed to send message to topic %s: %w", topic, err)
 	}
@@ -95,8 +95,8 @@ func (p *producer) SendAsync(ctx context.Context, topic string, key []byte, valu
 		msg.Metadata = callback
 	}
 
-	// Apply any message transformations
-	p.injectTraceContext(ctx, msg)
+	// Inject tracing and request identifiers into Kafka headers.
+	injectTraceToMessage(ctx, msg)
 
 	// Send message to async producer
 	select {
@@ -146,7 +146,7 @@ func (p *producer) Close() error {
 
 		// Log closure status
 		if err != nil {
-			common.Logger().Error("Producer closed with error", "id", producerID, "error", err)
+			common.Logger().Error("Producer closed with error", "id", producerID, "err", err)
 		} else {
 			common.Logger().Debug("Producer closed successfully", "id", producerID)
 		}
@@ -175,7 +175,7 @@ func (p *producer) handleErrors(ctx context.Context) {
 			}
 			log.Error("Async producer error",
 				"topic", err.Msg.Topic,
-				"error", err.Err,
+				"err", err.Err,
 			)
 
 			// Call callback with error if it exists
@@ -198,9 +198,4 @@ func (p *producer) handleErrors(ctx context.Context) {
 			}
 		}
 	}
-}
-
-// injectTraceContext is a placeholder for any future tracing integration
-func (p *producer) injectTraceContext(ctx context.Context, msg *sarama.ProducerMessage) {
-	// Tracing functionality removed
 }

@@ -163,14 +163,14 @@ func createProducer(ctx context.Context, config ProducerConfig) (IProducer, erro
 	log.Debug("Creating RocketMQ producer client.", "endpoint", config.Endpoint, "topics", config.Topics)
 	rmqProducer, err := rmq_client.NewProducer(rmqConfig, rmq_client.WithTopics(config.Topics...))
 	if err != nil {
-		log.Error("Failed to create RocketMQ producer client instance.", "error", err, "endpoint", config.Endpoint)
+		log.Error("Failed to create RocketMQ producer client instance.", "err", err, "endpoint", config.Endpoint)
 		return nil, fmt.Errorf("failed to create RocketMQ producer client for endpoint %s: %w", config.Endpoint, err)
 	}
 
 	log.Debug("Starting RocketMQ producer client.", "endpoint", config.Endpoint)
 	err = rmqProducer.Start()
 	if err != nil {
-		log.Error("Failed to start RocketMQ producer client instance.", "error", err, "endpoint", config.Endpoint)
+		log.Error("Failed to start RocketMQ producer client instance.", "err", err, "endpoint", config.Endpoint)
 		return nil, fmt.Errorf("failed to start RocketMQ producer for endpoint %s: %w", config.Endpoint, err)
 	}
 
