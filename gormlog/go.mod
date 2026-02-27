@@ -3,7 +3,7 @@ module github.com/aarontianqx/gopkg/gormlog
 go 1.22.0
 
 require (
-	github.com/aarontianqx/gopkg/common v0.0.5
+	github.com/aarontianqx/gopkg/common v0.0.7
 	gorm.io/gorm v1.31.1
 )
 

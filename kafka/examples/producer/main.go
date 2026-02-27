@@ -18,7 +18,7 @@ import (
 	"github.com/aarontianqx/gopkg/kafka"
 )
 
-var BROKERS = strings.Split("alikafka-pre-cn-em942wkwo001-1-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-2-vpc.alikafka.aliyuncs.com:9092,alikafka-pre-cn-em942wkwo001-3-vpc.alikafka.aliyuncs.com:9092", ",")
+var BROKERS = strings.Split("localhost:9092", ",")
 
 func main() {
 	common.InitLogger(

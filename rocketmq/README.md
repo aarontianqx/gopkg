@@ -162,7 +162,7 @@ func main() {
         // AccessSecret: "your-secret-key",
     })
     if err != nil {
-        common.Logger().Error("Failed to create producer", "error", err)
+        common.Logger().Error("Failed to create producer", "err", err)
         return
     }
     
@@ -177,7 +177,7 @@ func main() {
         }
         err = producer.Send(ctx, msg)
         if err != nil {
-            common.Logger().Error("Failed to send synchronous message", "error", err)
+            common.Logger().Error("Failed to send synchronous message", "err", err)
         } else {
             common.Logger().Info("Successfully sent synchronous message", "key", msg.Keys[0])
         }
@@ -203,7 +203,7 @@ func main() {
             // Send message asynchronously with callback
             producer.SendAsync(ctx, msg, func(err error) {
                 if err != nil {
-                    common.Logger().Error("Failed to send async message", "number", messageNum, "error", err)
+                    common.Logger().Error("Failed to send async message", "number", messageNum, "err", err)
                     return
                 }
                 common.Logger().Info("Successfully delivered async message", "number", messageNum)
@@ -221,7 +221,7 @@ func main() {
     }
     err = producer.SendDelay(ctx, delayMsg, 5*time.Second)
     if err != nil {
-        common.Logger().Error("Failed to send delayed message", "error", err)
+        common.Logger().Error("Failed to send delayed message", "err", err)
     } else {
         common.Logger().Info("Successfully sent delayed message", "key", delayMsg.Keys[0])
     }

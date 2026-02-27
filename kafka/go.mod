@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/IBM/sarama v1.46.3
-	github.com/aarontianqx/gopkg/common v0.0.6
+	github.com/aarontianqx/gopkg/common v0.0.7
 	github.com/aarontianqx/gopkg/errext v0.0.1
 	github.com/xdg-go/scram v1.2.0
 	go.opentelemetry.io/otel/trace v1.40.0

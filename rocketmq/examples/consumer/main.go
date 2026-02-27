@@ -95,7 +95,7 @@ func main() {
 		config: rocketmq.ConsumerConfig{
 			JobName:       "test-consumer-1",
 			Topic:         "marci_test_topic",
-			Endpoint:      "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080", // Change to your RocketMQ endpoint
+			Endpoint:      "localhost:8080", // Change to your RocketMQ endpoint
 			ConsumerGroup: "group_local_test_1",
 			// Optional authentication
 			AccessKey:         accessKey,

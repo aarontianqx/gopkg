@@ -3,12 +3,13 @@ module producer
 go 1.24.0
 
 require (
-	github.com/aarontianqx/gopkg/common v0.0.6
+	github.com/aarontianqx/gopkg/common v0.0.7
 	github.com/aarontianqx/gopkg/rocketmq v0.0.0
 )
 
 require (
 	contrib.go.opencensus.io/exporter/ocagent v0.7.0 // indirect
+	github.com/aarontianqx/gopkg/errext v0.0.1 // indirect
 	github.com/apache/rocketmq-clients/golang/v5 v5.1.3 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

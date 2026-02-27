@@ -86,7 +86,7 @@ func main() {
 		WorkerNum: 1,
 	}, myCronJob)
 	if err != nil {
-		log.Error("Failed to register cron job", "error", err)
+		log.Error("Failed to register cron job", "err", err)
 		os.Exit(1) // Or handle fatal error appropriately
 	}
 

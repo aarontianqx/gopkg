@@ -3,7 +3,7 @@ module github.com/aarontianqx/gopkg/rocketmq
 go 1.24.0
 
 require (
-	github.com/aarontianqx/gopkg/common v0.0.6
+	github.com/aarontianqx/gopkg/common v0.0.7
 	github.com/aarontianqx/gopkg/errext v0.0.1
 	github.com/apache/rocketmq-clients/golang/v5 v5.1.3
 	go.opentelemetry.io/otel/trace v1.40.0

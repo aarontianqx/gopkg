@@ -31,7 +31,7 @@ import (
 const (
 	Topic     = "marci_test_topic"
 	GroupName = "group_local_test_1"
-	Endpoint  = "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080"
+	Endpoint  = "localhost:8080"
 )
 
 var (

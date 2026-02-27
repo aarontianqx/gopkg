@@ -44,8 +44,8 @@ func main() {
 	// 创建生产者，使用简化的配置
 	producer, err := rocketmq.RegisterProducer(ctx, rocketmq.ProducerConfig{
 		// 必需的配置项
-		Endpoint: "rmq-cn-to3445cxv07-vpc.cn-beijing.rmq.aliyuncs.com:8080", // RocketMQ 服务端点
-		Topics:   []string{topic},                                           // 要生产的主题列表
+		Endpoint: "localhost:8080", // RocketMQ 服务端点
+		Topics:   []string{topic},  // 要生产的主题列表
 
 		// 可选的认证配置
 		AccessKey:    accessKey,
